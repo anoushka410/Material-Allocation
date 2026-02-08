@@ -1,0 +1,6 @@
+parameter,value,description
+lead_time_days,5,Average days from order to delivery
+order_cost_fixed,50,Fixed cost per replenishment order
+planning_horizon_days,7,Number of days to optimize over
+service_level_target,0.95,Target probability of no stockout
+

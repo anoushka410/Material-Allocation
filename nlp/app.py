@@ -100,7 +100,7 @@ with st.sidebar:
     st.subheader("Current Scenario")
     st.caption(scenario["scenario"])
     
-    st.markdown("### 📊 Key Metrics")
+    st.markdown("### Key Metrics")
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Baseline Stockouts", scenario["baseline"]["total_stockouts"], delta_color="inverse")
@@ -124,7 +124,7 @@ st.markdown("Welcome to your intelligent decision support system.")
 
 # Global Insights / Summary Dashboard
 with st.container():
-    st.subheader("🌍 Global Insights")
+    st.subheader("Global Insights")
     g_col1, g_col2, g_col3 = st.columns(3)
     
     with g_col1:
@@ -138,7 +138,7 @@ with st.container():
 st.markdown("---")
 
 # Selection Logic
-st.subheader("📋 Recommendations Dashboard")
+st.subheader("Recommendations Dashboard")
 
 # Create a list of options for the selectbox
 transfer_options = [f"Transfer: {t['quantity']} units of {t['product_id']} ({t['from_store']} -> {t['to_store']})" for t in transfers]
@@ -174,7 +174,7 @@ current_context_data = {
 # Display Active Recommendation Card
 with st.container():
     if selected_item:
-        st.markdown("#### 🚀 Selected Action Details")
+        st.markdown("#### Selected Action Details")
         rec_col1, rec_col2 = st.columns([1, 2])
         
         with rec_col1:

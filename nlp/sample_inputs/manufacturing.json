@@ -1,0 +1,14 @@
+{
+  "scenario": "High_Risk",
+  "product_id": "product_892",
+  "manufacture_quantity": 500,
+  "reason_codes": [
+    "aggregate_demand_exceeds_inventory",
+    "manufacture_to_avoid_stockout"
+  ],
+  "cost_impact": {
+    "manufacturing_cost": 1400,
+    "distribution_cost": 380,
+    "total_manufacturing_cost": 1780
+  }
+}

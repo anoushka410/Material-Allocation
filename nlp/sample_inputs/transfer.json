@@ -1,0 +1,24 @@
+{
+  "scenario": "High_Risk",
+  "from_store": "store_112",
+  "to_store": "store_347",
+  "product_id": "product_892",
+  "quantity": 150,
+  "reason_codes": [
+    "projected_stockout_at_destination",
+    "excess_inventory_at_source",
+    "high_demand_variability",
+    "transport_cost_acceptable"
+  ],
+  "cost_impact": {
+    "transport_cost": 620,
+    "holding_cost_change": -180,
+    "stockout_penalty_avoided": 2600,
+    "net_cost_change": -2160
+  },
+  "service_level_impact": {
+    "baseline_stockout_units": 120,
+    "post_transfer_stockout_units": 15,
+    "stockout_reduction_pct": 0.875
+  }
+}

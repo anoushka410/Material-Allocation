@@ -94,7 +94,7 @@ if "messages" not in st.session_state:
 
 # Sidebar Content
 with st.sidebar:
-    st.title("📦 Logistics Command Center")
+    st.title("Logistics Command Center")
     st.markdown("---")
     
     st.subheader("Current Scenario")
@@ -196,7 +196,7 @@ with st.container():
 st.markdown("---")
 
 # Chat Interface
-st.subheader("💬 AI Analyst")
+st.subheader("AI Analyst")
 
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:

@@ -26,8 +26,8 @@ st.markdown("""
         border-right: 1px solid #30363d;
     }
     
-    /* Metrics */
-    div[data-testid="metric-container"] {
+    /* Metrics and Cards */
+    div[data-testid="metric-container"], .stCard {
         background-color: #21262d;
         border: 1px solid #30363d;
         padding: 15px;
@@ -70,7 +70,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load data with robust path handling
+# Load data
 @st.cache_data
 def load_data():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -84,13 +84,9 @@ def load_data():
         scenario = json.load(f)
     return transfer, manufacturing, scenario
 
-transfer, manufacturing, scenario = load_data()
-
-data_store = {
-    "transfer": transfer,
-    "manufacturing": manufacturing,
-    "scenario": scenario
-}
+transfer_data, manufacturing_data, scenario = load_data()
+transfers = transfer_data.get("transfers", [])
+manufacturing_actions = manufacturing_data.get("manufacturing_actions", [])
 
 # Session State for Chat History
 if "messages" not in st.session_state:
@@ -126,19 +122,76 @@ with st.sidebar:
 st.title("Supply Chain Optimization Assistant")
 st.markdown("Welcome to your intelligent decision support system.")
 
-# Recommendation Section
+# Global Insights / Summary Dashboard
 with st.container():
-    st.subheader("🚀 Active Recommendation")
-    rec_col1, rec_col2 = st.columns([1, 2])
+    st.subheader("🌍 Global Insights")
+    g_col1, g_col2, g_col3 = st.columns(3)
     
-    with rec_col1:
-        st.info(f"**Action:** Transfer Stock")
-    
-    with rec_col2:
-        st.success(
-            f"Move **{transfer['quantity']} units** of **{transfer['product_id']}** "
-            f"from **{transfer['from_store']}** to **{transfer['to_store']}**"
-        )
+    with g_col1:
+        st.metric("Total Transfers", len(transfers))
+    with g_col2:
+        st.metric("Manufacturing Actions", len(manufacturing_actions))
+    with g_col3:
+        risk_level = "High" if "High" in scenario.get("scenario", "") else "Moderate" # Simple inference
+        st.metric("Risk Level", risk_level, delta="Analysis Complete")
+
+st.markdown("---")
+
+# Selection Logic
+st.subheader("📋 Recommendations Dashboard")
+
+# Create a list of options for the selectbox
+transfer_options = [f"Transfer: {t['quantity']} units of {t['product_id']} ({t['from_store']} -> {t['to_store']})" for t in transfers]
+manufacturing_options = [f"Manufacture: {m['manufacture_quantity']} units of {m['product_id']}" for m in manufacturing_actions]
+all_options = ["None (General Analysis)"] + transfer_options + manufacturing_options
+
+selected_option = st.selectbox("Select a recommendation to analyze or ask about:", all_options)
+
+# Find the selected item data
+selected_item = None
+selected_type = None
+
+if selected_option and selected_option != "None (General Analysis)":
+    if selected_option.startswith("Transfer"):
+        index = transfer_options.index(selected_option)
+        selected_item = transfers[index]
+        selected_type = "transfer"
+    elif selected_option.startswith("Manufacture"):
+        index = manufacturing_options.index(selected_option)
+        selected_item = manufacturing_actions[index]
+        selected_type = "manufacturing"
+
+# Prepare data for chatbot
+# We pass global data AND the selected item (if any)
+current_context_data = {
+    "scenario": scenario,
+    "all_transfers": transfers,
+    "all_manufacturing": manufacturing_actions,
+    "transfer": selected_item if selected_type == "transfer" else None,
+    "manufacturing": selected_item if selected_type == "manufacturing" else None
+}
+
+# Display Active Recommendation Card
+with st.container():
+    if selected_item:
+        st.markdown("#### 🚀 Selected Action Details")
+        rec_col1, rec_col2 = st.columns([1, 2])
+        
+        with rec_col1:
+            st.info(f"**Type:** {selected_type.capitalize()}")
+        
+        with rec_col2:
+            if selected_type == "transfer":
+                st.success(
+                    f"Move **{selected_item['quantity']} units** of **{selected_item['product_id']}** "
+                    f"from **{selected_item['from_store']}** to **{selected_item['to_store']}**"
+                )
+            else:
+                st.success(
+                    f"Manufacture **{selected_item['manufacture_quantity']} units** of **{selected_item['product_id']}**"
+                )
+    else:
+        st.info("Select a recommendation above to view details, or ask general questions below.")
 
 st.markdown("---")
 
@@ -151,7 +204,8 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Accept user input
-if prompt := st.chat_input("Ask about this recommendation..."):
+input_placeholder = f"Ask about this {selected_type}..." if selected_item else "Ask about global insights (e.g. 'How many transfers?', 'Summary')"
+if prompt := st.chat_input(input_placeholder):
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
     
@@ -162,7 +216,8 @@ if prompt := st.chat_input("Ask about this recommendation..."):
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        full_response = handle_query(prompt, data_store)
+        # Pass the context-specific data to the chatbot
+        full_response = handle_query(prompt, current_context_data)
         message_placeholder.markdown(full_response)
     
     # Add assistant response to chat history

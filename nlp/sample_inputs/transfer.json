@@ -1,24 +1,118 @@
 {
   "scenario": "High_Risk",
-  "from_store": "store_112",
-  "to_store": "store_347",
-  "product_id": "product_892",
-  "quantity": 150,
-  "reason_codes": [
-    "projected_stockout_at_destination",
-    "excess_inventory_at_source",
-    "high_demand_variability",
-    "transport_cost_acceptable"
-  ],
-  "cost_impact": {
-    "transport_cost": 620,
-    "holding_cost_change": -180,
-    "stockout_penalty_avoided": 2600,
-    "net_cost_change": -2160
-  },
-  "service_level_impact": {
-    "baseline_stockout_units": 120,
-    "post_transfer_stockout_units": 15,
-    "stockout_reduction_pct": 0.875
-  }
+  "transfers": [
+    {
+      "transfer_id": "T001",
+      "from_store": "store_112",
+      "to_store": "store_347",
+      "product_id": "product_892",
+      "quantity": 150,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 620,
+        "holding_cost_change": -180,
+        "stockout_penalty_avoided": 2600,
+        "net_cost_change": -2160
+      },
+      "service_level_impact": {
+        "baseline_stockout_units": 120,
+        "post_transfer_stockout_units": 15,
+        "stockout_reduction_pct": 0.875
+      }
+    },
+    {
+      "transfer_id": "T002",
+      "from_store": "store_205",
+      "to_store": "store_410",
+      "product_id": "product_341",
+      "quantity": 90,
+      "reason_codes": [
+        "high_demand_variability",
+        "excess_inventory_at_source",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 410,
+        "holding_cost_change": -95,
+        "stockout_penalty_avoided": 1300,
+        "net_cost_change": -985
+      },
+      "service_level_impact": {
+        "baseline_stockout_units": 60,
+        "post_transfer_stockout_units": 22,
+        "stockout_reduction_pct": 0.633
+      }
+    },
+    {
+      "transfer_id": "T003",
+      "from_store": "store_178",
+      "to_store": "store_299",
+      "product_id": "product_517",
+      "quantity": 60,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "transport_cost": 290,
+        "holding_cost_change": -60,
+        "stockout_penalty_avoided": 780,
+        "net_cost_change": -430
+      },
+      "service_level_impact": {
+        "baseline_stockout_units": 45,
+        "post_transfer_stockout_units": 18,
+        "stockout_reduction_pct": 0.6
+      }
+    },
+    {
+      "transfer_id": "T004",
+      "from_store": "store_088",
+      "to_store": "store_256",
+      "product_id": "product_774",
+      "quantity": 110,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "transport_cost": 510,
+        "holding_cost_change": -140,
+        "stockout_penalty_avoided": 1900,
+        "net_cost_change": -1530
+      },
+      "service_level_impact": {
+        "baseline_stockout_units": 95,
+        "post_transfer_stockout_units": 25,
+        "stockout_reduction_pct": 0.737
+      }
+    },
+    {
+      "transfer_id": "T005",
+      "from_store": "store_144",
+      "to_store": "store_389",
+      "product_id": "product_629",
+      "quantity": 70,
+      "reason_codes": [
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 260,
+        "holding_cost_change": -40,
+        "stockout_penalty_avoided": 520,
+        "net_cost_change": -300
+      },
+      "service_level_impact": {
+        "baseline_stockout_units": 30,
+        "post_transfer_stockout_units": 12,
+        "stockout_reduction_pct": 0.6
+      }
+    }
+  ]
 }

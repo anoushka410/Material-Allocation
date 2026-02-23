@@ -38,8 +38,8 @@ def _ensure_ollama() -> tuple[bool, str]:
     return False, "Ollama started but did not respond in time. Using keyword fallback."
 
 st.set_page_config(
-    page_title="Supply Chain NLP Assistant",
-    page_icon="🔗",
+    page_title="Supply Chain Analytics",
+    page_icon=None,
     layout="wide",
 )
 
@@ -53,58 +53,102 @@ st.markdown(
     }
 
     .stApp {
-        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        background-color: #f8fafc;
+        color: #0f172a;
         min-height: 100vh;
+    }
+    
+    /* Target dark mode users to ensure text is legible */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
     }
 
     .main-header {
-        text-align: center;
+        text-align: left;
         padding: 2rem 0 1rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        margin-bottom: 2rem;
     }
 
     .main-header h1 {
-        font-size: 2.2rem;
+        font-size: 1.8rem;
         font-weight: 700;
-        color: #e2e8f0;
         letter-spacing: -0.5px;
         margin-bottom: 0.3rem;
     }
 
     .main-header p {
-        color: #94a3b8;
-        font-size: 1rem;
+        font-size: 0.95rem;
+        opacity: 0.7;
     }
 
     .intent-badge {
         display: inline-block;
-        padding: 3px 10px;
-        border-radius: 9999px;
+        padding: 4px 12px;
+        border-radius: 4px;
         font-size: 0.75rem;
         font-weight: 600;
-        background: rgba(99, 102, 241, 0.2);
-        color: #a5b4fc;
-        border: 1px solid rgba(99, 102, 241, 0.4);
+        background: rgba(148, 163, 184, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.3);
         margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .filter-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: rgba(14, 165, 233, 0.1);
+        color: #0ea5e9;
+        border: 1px solid rgba(14, 165, 233, 0.3);
+        margin-bottom: 0.5rem;
+        margin-left: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .fallback-note {
-        font-size: 0.8rem;
-        color: #f59e0b;
-        margin-top: 0.4rem;
+        font-size: 0.75rem;
+        opacity: 0.6;
+        margin-top: 0.5rem;
         font-style: italic;
     }
 
     .stChatMessage {
-        background: rgba(255, 255, 255, 0.04) !important;
-        border: 1px solid rgba(255, 255, 255, 0.07) !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(10px);
+        background: #ffffff !important;
+        border: 1px solid rgba(148, 163, 184, 0.2) !important;
+        border-radius: 8px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 1rem !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .stChatMessage {
+            background: #1e293b !important;
+            border: 1px solid rgba(148, 163, 184, 0.1) !important;
+        }
     }
 
     .stChatInputContainer {
-        background: rgba(255, 255, 255, 0.06) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 12px !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(148, 163, 184, 0.3) !important;
+    }
+    
+    /* Hide Streamlit Default Elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 1000px;
     }
     </style>
     """,
@@ -114,8 +158,8 @@ st.markdown(
 st.markdown(
     """
     <div class="main-header">
-        <h1>🔗 Supply Chain NLP Assistant</h1>
-        <p>Ask about transfers, manufacturing actions, or scenario summaries</p>
+        <h1>Supply Chain Analytics Assistant</h1>
+        <p>Query optimization scenarios, transfer recommendations, and scenario metrics.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -146,30 +190,54 @@ if "last_intent" not in st.session_state:
     st.session_state.last_intent = None
 
 if "ollama_ok" not in st.session_state:
-    with st.spinner("Checking Ollama… starting if needed."):
-        ok, msg = _ensure_ollama()
-    st.session_state.ollama_ok = ok
-    st.session_state.ollama_msg = msg
+    st.session_state.ollama_ok = False
+    st.session_state.ollama_msg = "Checking system status..."
 
-if st.session_state.ollama_ok:
-    st.success(f"🤖 {st.session_state.ollama_msg}", icon="✅")
-else:
-    st.warning(
-        f"⚡ **{st.session_state.ollama_msg}** "
-        "Explanations will be shown without LLM refinement.",
-        icon="🤖",
-    )
+# Sidebar Controls
+with st.sidebar:
+    st.markdown("### Control Panel")
+    
+    if st.button("Clear Conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.last_intent = None
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("### System Status")
+    
+    if "ollama_checked" not in st.session_state:
+        # Check ollama on first load quietly
+        ok, msg = _ensure_ollama()
+        st.session_state.ollama_ok = ok
+        st.session_state.ollama_msg = msg
+        st.session_state.ollama_checked = True
+
+    if st.session_state.ollama_ok:
+        st.success("Refinement Engine: Online")
+    else:
+        st.warning("Refinement Engine: Offline\n\n(Using Deterministic Fallback)")
+        st.caption(st.session_state.ollama_msg)
+        if st.button("Start Engine", use_container_width=True):
+            with st.spinner("Starting engine..."):
+                ok, msg = _ensure_ollama()
+                st.session_state.ollama_ok = ok
+                st.session_state.ollama_msg = msg
+                st.rerun()
+
+AVATAR_USER = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#334155" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">U</text></svg>'''
+AVATAR_AI = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0ea5e9" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">AI</text></svg>'''
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    avatar_val = AVATAR_USER if msg["role"] == "user" else AVATAR_AI
+    with st.chat_message(msg["role"], avatar=avatar_val):
         st.markdown(msg["content"], unsafe_allow_html=True)
 
 if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=AVATAR_USER):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=AVATAR_AI):
         with st.spinner("Classifying intent…"):
             intent = classify_intent(prompt)
 
@@ -188,34 +256,34 @@ if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metr
 
         if intent == "greeting":
             response = (
-                "👋 Hey there! I'm your **Supply Chain NLP Assistant**.\n\n"
-                "I can help you understand the optimization decisions made for the current scenario. "
-                "Here are a few things you can ask me:\n\n"
-                "- 🔄 *\"Explain the transfer recommendations\"*\n"
-                "- 🏭 *\"Why were these manufacturing decisions made?\"*\n"
-                "- 📊 *\"Give me a scenario summary\"*\n"
-                "- 💰 *\"What was the cost impact?\"*\n\n"
-                "What would you like to know?"
+                "Hello. I am the Supply Chain Analytics Assistant.\n\n"
+                "I am equipped to analyze optimization recommendations based on the current scenario data. "
+                "You can query me on the following topics:\n\n"
+                "- *\"Explain the transfer recommendations\"*\n"
+                "- *\"Detail the manufacturing decisions\"*\n"
+                "- *\"Provide a high-level scenario summary\"*\n"
+                "- *\"Review the cost impact\"*\n\n"
+                "Please enter your query below."
             )
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
         elif intent == "out_of_scope":
             response = (
-                "🤔 Hmm, that one's a bit outside my area! I'm specialised in supply chain "
-                "optimization — things like inventory transfers, manufacturing decisions, and scenario analysis.\n\n"
-                "Try asking something like:\n"
-                "- *\"Why was inventory transferred between stores?\"*\n"
-                "- *\"What manufacturing actions were taken?\"*\n"
-                "- *\"How did the optimized scenario compare to baseline?\"*"
+                "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
+                "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
+                "Please rephrase your request. For example:\n"
+                "- *\"Why was inventory transferred between facilities?\"*\n"
+                "- *\"What manufacturing actions were recommended?\"*\n"
+                "- *\"Compare the optimized scenario against the baseline.\"*"
             )
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
         else:
             has_specifics = any(params.get(k) for k in ["transfer_id", "manufacturing_id", "product_id", "store_id"])
 
-            badge_html = f'<span class="intent-badge">🏷 {label}</span>'
+            badge_html = f'<span class="intent-badge">{label}</span>'
             if has_specifics:
-                badge_html += ' <span class="intent-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">🎯 Specific Filter</span>'
+                badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
             st.markdown(badge_html, unsafe_allow_html=True)
             data = {
                 "scenario": load_json(f"{SAMPLE_DATA_DIR}/scenario.json"),
@@ -249,12 +317,12 @@ if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metr
 
             if fallback:
                 st.markdown(
-                    '<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>',
+                    '<p class="fallback-note">System indicator: LLM refinement unavailable. Displaying root deterministic evaluation.</p>',
                     unsafe_allow_html=True,
                 )
 
             full_display = f"{badge_html}\n\n{final_response}"
             if fallback:
-                full_display += '\n\n<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>'
+                full_display += '\n\n<p class="fallback-note">System indicator: LLM refinement unavailable. Displaying root deterministic evaluation.</p>'
 
             st.session_state.messages.append({"role": "assistant", "content": full_display})

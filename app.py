@@ -238,11 +238,18 @@ if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metr
 
                 refined = None
                 fallback = False
-                try:
-                    with st.spinner("Refining with TinyLlama…"):
-                        refined = refine_explanation(raw_explanation, user_question=prompt)
-                except Exception:
-                    fallback = True
+                
+                # Check for empty state responses directly from explanation_engine
+                is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match")
+
+                if is_empty_state:
+                    refined = raw_explanation
+                else:
+                    try:
+                        with st.spinner("Refining with TinyLlama…"):
+                            refined = refine_explanation(raw_explanation, user_question=prompt)
+                    except Exception:
+                        fallback = True
 
                 final_response = refined if refined else raw_explanation
                 st.markdown(final_response)

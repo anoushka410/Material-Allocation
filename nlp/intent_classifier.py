@@ -79,11 +79,17 @@ def _keyword_classify(text: str) -> str:
 
 def extract_parameters(text: str) -> dict:
     lower = text.lower()
+    # Normalize "store 223" -> "store_223" and "product 892" -> "product_892"
+    normalized = re.sub(r'\b(store|product)\s+(\d+)\b', r'\1_\2', lower)
+    # Extract IDs
+    t_ids = [m.replace("_", "").upper() for m in re.findall(r'\bt_?\d{3}\b', normalized)]
+    m_ids = [m.replace("_", "").upper() for m in re.findall(r'\bm_?\d{3}\b', normalized)]
+    
     return {
-        "transfer_id": [m.upper() for m in re.findall(r'\bt\d{3}\b', lower)],
-        "manufacturing_id": [m.upper() for m in re.findall(r'\bm\d{3}\b', lower)],
-        "product_id": re.findall(r'\bproduct_\d+\b', lower),
-        "store_id": re.findall(r'\bstore_\d+\b', lower),
+        "transfer_id": t_ids,
+        "manufacturing_id": m_ids,
+        "product_id": re.findall(r'\bproduct_\d+\b', normalized),
+        "store_id": re.findall(r'\bstore_\d+\b', normalized),
         "is_all": any(w in lower for w in ["all", "every", "overview", "list", "total", "everything"]),
     }
 
@@ -97,11 +103,23 @@ def classify_intent(user_message: str) -> str:
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
     ]
+    
+    def _fallback_with_params(intent: str) -> str:
+        if intent == "out_of_scope":
+            params = extract_parameters(user_message)
+            if params.get("store_id") or params.get("transfer_id"):
+                return "explain_transfer"
+            if params.get("manufacturing_id"):
+                return "explain_manufacturing"
+            if params.get("product_id"):
+                return "explain_transfer" # defaults to showing product transfers
+        return intent
+
     try:
         raw = call_llm(messages).strip().lower()
         label = raw.split()[0] if raw else ""
         if label in ALLOWED_INTENTS:
-            return label
-        return _keyword_classify(user_message)
+            return _fallback_with_params(label)
+        return _fallback_with_params(_keyword_classify(user_message))
     except Exception:
-        return _keyword_classify(user_message)
+        return _fallback_with_params(_keyword_classify(user_message))

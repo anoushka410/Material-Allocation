@@ -129,6 +129,7 @@ INTENT_LABELS = {
     "scenario_summary": "Scenario Summary",
     "impact_analysis": "Impact Analysis",
     "list_entities": "Entity List",
+    "total_counts": "Summary Metrics",
     "out_of_scope": "Out of Scope",
 }
 
@@ -212,56 +213,48 @@ if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metr
         else:
             has_specifics = any(params.get(k) for k in ["transfer_id", "manufacturing_id", "product_id", "store_id"])
 
-            if intent in ("explain_transfer", "explain_manufacturing") and not has_specifics and not params["is_all"]:
-                item_name = "transfer recommendations" if intent == "explain_transfer" else "manufacturing decisions"
-                example_id = "T001" if intent == "explain_transfer" else "M001"
-                response = (
-                    f"I can explain the {item_name}. Do you want an overview of **all** of them, "
-                    f"or do you want to know about a specific ID (e.g., `{example_id}`), product (e.g., `product_892`), or store?"
-                )
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            badge_html = f'<span class="intent-badge">🏷 {label}</span>'
+            if has_specifics:
+                badge_html += ' <span class="intent-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">🎯 Specific Filter</span>'
+            st.markdown(badge_html, unsafe_allow_html=True)
+            data = {
+                "scenario": load_json(f"{SAMPLE_DATA_DIR}/scenario.json"),
+                "transfers": load_json(f"{SAMPLE_DATA_DIR}/transfer.json"),
+                "manufacturing": load_json(f"{SAMPLE_DATA_DIR}/manufacturing.json"),
+            }
+
+            with st.spinner("Building explanation…"):
+                raw_explanation = build_explanation(intent, data, params)
+
+            refined = None
+            fallback = False
+            
+            # Check for empty state responses directly from explanation_engine
+            is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match")
+            
+            # Bypass LLM refinement for tabular/list data (entities and counts) to prevent hallucination
+            skip_refiner = is_empty_state or intent in ("list_entities", "total_counts")
+
+            if skip_refiner:
+                refined = raw_explanation
             else:
-                badge_html = f'<span class="intent-badge">🏷 {label}</span>'
-                if has_specifics:
-                    badge_html += ' <span class="intent-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">🎯 Specific Filter</span>'
-                st.markdown(badge_html, unsafe_allow_html=True)
+                try:
+                    with st.spinner("Refining with TinyLlama…"):
+                        refined = refine_explanation(raw_explanation, user_question=prompt)
+                except Exception:
+                    fallback = True
 
-                data = {
-                    "scenario": load_json(f"{SAMPLE_DATA_DIR}/scenario.json"),
-                    "transfers": load_json(f"{SAMPLE_DATA_DIR}/transfer.json"),
-                    "manufacturing": load_json(f"{SAMPLE_DATA_DIR}/manufacturing.json"),
-                }
+            final_response = refined if refined else raw_explanation
+            st.markdown(final_response)
 
-                with st.spinner("Building explanation…"):
-                    raw_explanation = build_explanation(intent, data, params)
+            if fallback:
+                st.markdown(
+                    '<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>',
+                    unsafe_allow_html=True,
+                )
 
-                refined = None
-                fallback = False
-                
-                # Check for empty state responses directly from explanation_engine
-                is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match")
+            full_display = f"{badge_html}\n\n{final_response}"
+            if fallback:
+                full_display += '\n\n<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>'
 
-                if is_empty_state:
-                    refined = raw_explanation
-                else:
-                    try:
-                        with st.spinner("Refining with TinyLlama…"):
-                            refined = refine_explanation(raw_explanation, user_question=prompt)
-                    except Exception:
-                        fallback = True
-
-                final_response = refined if refined else raw_explanation
-                st.markdown(final_response)
-
-                if fallback:
-                    st.markdown(
-                        '<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>',
-                        unsafe_allow_html=True,
-                    )
-
-                full_display = f"{badge_html}\n\n{final_response}"
-                if fallback:
-                    full_display += '\n\n<p class="fallback-note">⚡ Ollama unavailable — showing deterministic explanation.</p>'
-
-                st.session_state.messages.append({"role": "assistant", "content": full_display})
+            st.session_state.messages.append({"role": "assistant", "content": full_display})

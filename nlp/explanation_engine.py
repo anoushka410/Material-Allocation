@@ -181,6 +181,25 @@ def explain_entities(data: dict) -> str:
     return "\n".join(lines)
 
 
+def explain_counts(data: dict) -> str:
+    scenario = data.get("scenario", {}).get("scenario", "Unknown")
+    transfers = data.get("transfers", {}).get("transfers", [])
+    manufacturing = data.get("manufacturing", {}).get("manufacturing_actions", [])
+    
+    products_t = set(t["product_id"] for t in transfers if "product_id" in t)
+    products_m = set(m["product_id"] for m in manufacturing if "product_id" in m)
+    total_products = len(products_t | products_m)
+    
+    lines = [
+        f"**Scenario:** {scenario}",
+        "",
+        "**Overall Summary Metrics:**",
+        f"- Total Transfer Recommendations: **{len(transfers)}**",
+        f"- Total Manufacturing Decisions: **{len(manufacturing)}**",
+        f"- Unique Products Affected: **{total_products}**",
+    ]
+    return "\n".join(lines)
+
 def build_explanation(intent: str, data: dict, params: dict = None) -> str:
     if intent == "explain_transfer":
         return explain_transfer(data, params)
@@ -188,6 +207,8 @@ def build_explanation(intent: str, data: dict, params: dict = None) -> str:
         return explain_manufacturing(data, params)
     if intent == "list_entities":
         return explain_entities(data)
+    if intent == "total_counts":
+        return explain_counts(data)
     if intent in ("scenario_summary", "impact_analysis"):
         return explain_scenario(data)
     return ""

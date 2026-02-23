@@ -6,6 +6,7 @@ ALLOWED_INTENTS = {
     "explain_manufacturing",
     "scenario_summary",
     "impact_analysis",
+    "total_counts",
     "out_of_scope",
     "greeting",
 }
@@ -22,6 +23,7 @@ SYSTEM_PROMPT = (
     "  explain_manufacturing\n"
     "  scenario_summary\n"
     "  impact_analysis\n"
+    "  total_counts\n"
     "  out_of_scope\n\n"
     "Label definitions:\n"
     "  explain_transfer      → anything about moving/transferring inventory between stores, "
@@ -30,14 +32,15 @@ SYSTEM_PROMPT = (
     "why items were manufactured, production decisions\n"
     "  scenario_summary      → high-level overview of a scenario, baseline vs optimized comparison\n"
     "  impact_analysis       → cost savings, stockout reductions, financial impact of decisions\n"
+    "  total_counts          → asking for counts or quantities like 'how many transfers', 'how many products', 'total recommendations'\n"
     "  out_of_scope          → unrelated to supply chain (e.g. weather, cooking, general chat)\n\n"
     "Examples:\n"
     "  'why should I transfer?' → explain_transfer\n"
     "  'what are my recommendations?' → explain_transfer\n"
-    "  'explain the transfers' → explain_transfer\n"
     "  'why was product manufactured?' → explain_manufacturing\n"
     "  'how did the scenario perform?' → scenario_summary\n"
     "  'what was the cost impact?' → impact_analysis\n"
+    "  'how many recommendations in total do you have?' → total_counts\n"
     "  'what is the weather today?' → out_of_scope\n\n"
     "Rules:\n"
     "- Return ONLY the label. No punctuation, no explanation, no extra text.\n"
@@ -49,8 +52,8 @@ _KEYWORD_MAP = {
     "explain_transfer": [
         "transfer", "move inventory", "reroute", "shift stock", "send inventory",
         "from store", "to store", "inter-store", "why transfer", "should i transfer",
-        "recommend", "recommendation", "what should", "allocation decision",
-        "why move", "store to store",
+        "recommend", "recommendation", "reccomend", "reccomendation", "what should", 
+        "allocation decision", "why move", "store to store",
     ],
     "explain_manufacturing": [
         "manufactur", "produce", "production", "make more", "fabricat",
@@ -66,14 +69,25 @@ _KEYWORD_MAP = {
         "impact", "effect", "cost change", "cost impact", "how much",
         "savings", "stockout reduction", "net change", "financial", "benefit",
     ],
+    "total_counts": [
+        "how many", "count", "total number", "amount of", "number of",
+    ],
 }
 
 
 def _keyword_classify(text: str) -> str:
     lower = text.lower()
+    
+    # Check total_counts first to prioritize "how many transfers" over just "transfers"
+    for kw in _KEYWORD_MAP["total_counts"]:
+        if kw in lower:
+            return "total_counts"
+            
     for intent, keywords in _KEYWORD_MAP.items():
+        if intent == "total_counts": continue
         if any(kw in lower for kw in keywords):
             return intent
+            
     return "out_of_scope"
 
 

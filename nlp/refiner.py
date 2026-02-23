@@ -9,11 +9,11 @@ def refine_explanation(raw_explanation: str, user_question: str = "") -> str:
         else ""
     )
     prompt = (
-        f"You are a helpful supply chain assistant. Explain the following data in a readable, natural way. "
-        f"{tone_instruction}"
-        "Write conversational sentences explaining the actions, the reasoning, and the financial impact. "
-        "Do not change any numbers, costs, or percentages, and do not hallucinate new facts.\n\n"
-        f"DATA TO EXPLAIN:\n{raw_explanation}"
+        "Focus only on summarizing the following data into a single, clear, conversational paragraph. "
+        "Do not write any dialogue, greetings, or conversational filler. "
+        "State the facts directly based only on the provided data.\n\n"
+        f"DATA TO EXPLAIN:\n{raw_explanation}\n\n"
+        "SUMMARY PARAGRAPH:\n"
     )
     messages = [{"role": "user", "content": prompt}]
     return call_llm(messages)

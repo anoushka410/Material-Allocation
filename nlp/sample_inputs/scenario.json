@@ -1,0 +1,16 @@
+{
+  "scenario": "High_Risk",
+  "baseline": {
+    "total_cost": 165800,
+    "total_stockouts": 720
+  },
+  "optimized": {
+    "total_cost": 149300,
+    "total_stockouts": 290
+  },
+  "delta": {
+    "cost_change": -16500,
+    "stockout_reduction_units": 430,
+    "stockout_reduction_pct": 0.597
+  }
+}

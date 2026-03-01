@@ -1,0 +1,18 @@
+{
+  "status": "Optimal",
+  "total_cost": 497847.62,
+  "cost_breakdown": {
+    "manufacturing": 477151.17,
+    "transfer": 507.1,
+    "holding": 20189.35
+  },
+  "units": {
+    "manufactured": 6531.6,
+    "transferred": 253.6
+  },
+  "scope": {
+    "stores": 20,
+    "store_product_pairs": 1000,
+    "products_per_store": 50
+  }
+}

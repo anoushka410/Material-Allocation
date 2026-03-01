@@ -1,0 +1,2131 @@
+{
+  "scenario": "optimization_run",
+  "transfers": [
+    {
+      "from_store": "1",
+      "to_store": "60",
+      "product_id": "489",
+      "quantity": 1.31,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.61
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "60",
+      "product_id": "486",
+      "quantity": 0.38,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.76
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "131",
+      "product_id": "635",
+      "quantity": 2.43,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "safety_stock_violation_prevented",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.86
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "134",
+      "product_id": "481",
+      "quantity": 0.06,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.12
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "145",
+      "product_id": "118",
+      "quantity": 2.99,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.98
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "145",
+      "product_id": "363",
+      "quantity": 0.49,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.98
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "147",
+      "product_id": "567",
+      "quantity": 0.93,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.87
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "147",
+      "product_id": "740",
+      "quantity": 0.06,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.12
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "182",
+      "product_id": "117",
+      "quantity": 13.43,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 26.86
+      }
+    },
+    {
+      "from_store": "18",
+      "to_store": "196",
+      "product_id": "41",
+      "quantity": 0.85,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.69
+      }
+    },
+    {
+      "from_store": "29",
+      "to_store": "18",
+      "product_id": "190",
+      "quantity": 1.81,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.62
+      }
+    },
+    {
+      "from_store": "29",
+      "to_store": "182",
+      "product_id": "296",
+      "quantity": 0.1,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.21
+      }
+    },
+    {
+      "from_store": "29",
+      "to_store": "196",
+      "product_id": "567",
+      "quantity": 0.9,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.8
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "1",
+      "product_id": "76",
+      "quantity": 4.27,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 8.54
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "29",
+      "product_id": "117",
+      "quantity": 4.82,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 9.64
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "60",
+      "product_id": "740",
+      "quantity": 0.35,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.69
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "74",
+      "product_id": "291",
+      "quantity": 0.35,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.69
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "118",
+      "product_id": "843",
+      "quantity": 1.09,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.19
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "131",
+      "product_id": "291",
+      "quantity": 1.37,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.73
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "131",
+      "product_id": "292",
+      "quantity": 2.0,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.0
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "134",
+      "product_id": "76",
+      "quantity": 1.29,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.59
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "134",
+      "product_id": "631",
+      "quantity": 0.11,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.22
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "145",
+      "product_id": "774",
+      "quantity": 2.3,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.61
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "145",
+      "product_id": "804",
+      "quantity": 0.37,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.74
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "147",
+      "product_id": "740",
+      "quantity": 0.54,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.09
+      }
+    },
+    {
+      "from_store": "46",
+      "to_store": "187",
+      "product_id": "740",
+      "quantity": 3.03,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.06
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "1",
+      "product_id": "118",
+      "quantity": 3.21,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.43
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "18",
+      "product_id": "666",
+      "quantity": 2.2,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.39
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "46",
+      "product_id": "119",
+      "quantity": 2.82,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.64
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "46",
+      "product_id": "118",
+      "quantity": 0.12,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.24
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "46",
+      "product_id": "666",
+      "quantity": 0.28,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.57
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "131",
+      "product_id": "118",
+      "quantity": 1.45,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.9
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "131",
+      "product_id": "769",
+      "quantity": 0.23,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.46
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "134",
+      "product_id": "481",
+      "quantity": 2.42,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.83
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "145",
+      "product_id": "118",
+      "quantity": 0.02,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.04
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "147",
+      "product_id": "567",
+      "quantity": 0.47,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.94
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "151",
+      "product_id": "600",
+      "quantity": 1.52,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.03
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "151",
+      "product_id": "666",
+      "quantity": 2.03,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.06
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "151",
+      "product_id": "481",
+      "quantity": 0.59,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.18
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "188",
+      "product_id": "769",
+      "quantity": 3.06,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.12
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "188",
+      "product_id": "774",
+      "quantity": 0.11,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.21
+      }
+    },
+    {
+      "from_store": "60",
+      "to_store": "196",
+      "product_id": "118",
+      "quantity": 1.58,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.17
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "29",
+      "product_id": "118",
+      "quantity": 0.03,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.06
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "46",
+      "product_id": "363",
+      "quantity": 0.35,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.69
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "147",
+      "product_id": "691",
+      "quantity": 0.43,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.86
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "182",
+      "product_id": "292",
+      "quantity": 3.59,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 7.18
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "187",
+      "product_id": "691",
+      "quantity": 3.03,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.06
+      }
+    },
+    {
+      "from_store": "74",
+      "to_store": "188",
+      "product_id": "691",
+      "quantity": 12.34,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 24.68
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "29",
+      "product_id": "116",
+      "quantity": 2.51,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.02
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "60",
+      "product_id": "76",
+      "quantity": 0.14,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.28
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "134",
+      "product_id": "631",
+      "quantity": 0.92,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.84
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "151",
+      "product_id": "635",
+      "quantity": 0.43,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.86
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "181",
+      "product_id": "635",
+      "quantity": 1.45,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.89
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "182",
+      "product_id": "76",
+      "quantity": 0.92,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.83
+      }
+    },
+    {
+      "from_store": "118",
+      "to_store": "194",
+      "product_id": "76",
+      "quantity": 0.28,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.56
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "74",
+      "product_id": "290",
+      "quantity": 3.37,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.75
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "118",
+      "product_id": "19",
+      "quantity": 2.12,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.25
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "147",
+      "product_id": "119",
+      "quantity": 1.14,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.28
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "147",
+      "product_id": "290",
+      "quantity": 0.63,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.26
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "182",
+      "product_id": "76",
+      "quantity": 6.02,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 12.04
+      }
+    },
+    {
+      "from_store": "131",
+      "to_store": "188",
+      "product_id": "682",
+      "quantity": 2.71,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.41
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "1",
+      "product_id": "810",
+      "quantity": 0.48,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.96
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "29",
+      "product_id": "118",
+      "quantity": 2.21,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.43
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "29",
+      "product_id": "635",
+      "quantity": 0.81,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.61
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "145",
+      "product_id": "635",
+      "quantity": 0.14,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.27
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "151",
+      "product_id": "796",
+      "quantity": 5.46,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 10.91
+      }
+    },
+    {
+      "from_store": "134",
+      "to_store": "154",
+      "product_id": "118",
+      "quantity": 0.31,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.62
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "46",
+      "product_id": "119",
+      "quantity": 2.43,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.85
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "131",
+      "product_id": "567",
+      "quantity": 1.18,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.36
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "131",
+      "product_id": "686",
+      "quantity": 0.43,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.85
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "131",
+      "product_id": "345",
+      "quantity": 0.7,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.4
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "183",
+      "product_id": "119",
+      "quantity": 4.18,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 8.36
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "188",
+      "product_id": "567",
+      "quantity": 0.9,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.81
+      }
+    },
+    {
+      "from_store": "145",
+      "to_store": "194",
+      "product_id": "76",
+      "quantity": 2.39,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.78
+      }
+    },
+    {
+      "from_store": "147",
+      "to_store": "29",
+      "product_id": "117",
+      "quantity": 0.07,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.14
+      }
+    },
+    {
+      "from_store": "147",
+      "to_store": "60",
+      "product_id": "682",
+      "quantity": 1.98,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.97
+      }
+    },
+    {
+      "from_store": "147",
+      "to_store": "131",
+      "product_id": "769",
+      "quantity": 1.37,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.75
+      }
+    },
+    {
+      "from_store": "147",
+      "to_store": "145",
+      "product_id": "4",
+      "quantity": 2.25,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "safety_stock_violation_prevented",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.5
+      }
+    },
+    {
+      "from_store": "147",
+      "to_store": "183",
+      "product_id": "117",
+      "quantity": 7.43,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 14.85
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "118",
+      "product_id": "118",
+      "quantity": 1.46,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.93
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "118",
+      "product_id": "292",
+      "quantity": 2.22,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.43
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "131",
+      "product_id": "769",
+      "quantity": 1.43,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.86
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "145",
+      "product_id": "118",
+      "quantity": 0.1,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.19
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "145",
+      "product_id": "292",
+      "quantity": 0.03,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.06
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "147",
+      "product_id": "118",
+      "quantity": 0.33,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.66
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "154",
+      "product_id": "118",
+      "quantity": 2.13,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.25
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "183",
+      "product_id": "118",
+      "quantity": 0.22,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.43
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "183",
+      "product_id": "769",
+      "quantity": 0.08,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.16
+      }
+    },
+    {
+      "from_store": "151",
+      "to_store": "194",
+      "product_id": "118",
+      "quantity": 5.25,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "safety_stock_violation_prevented",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 10.5
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "18",
+      "product_id": "775",
+      "quantity": 0.03,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.06
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "29",
+      "product_id": "691",
+      "quantity": 4.48,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 8.97
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "29",
+      "product_id": "775",
+      "quantity": 1.01,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.02
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "46",
+      "product_id": "567",
+      "quantity": 0.77,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.53
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "118",
+      "product_id": "426",
+      "quantity": 0.69,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.38
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "131",
+      "product_id": "567",
+      "quantity": 1.52,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.04
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "131",
+      "product_id": "631",
+      "quantity": 0.47,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.95
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "134",
+      "product_id": "453",
+      "quantity": 1.82,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.65
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "147",
+      "product_id": "567",
+      "quantity": 0.65,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.31
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "181",
+      "product_id": "296",
+      "quantity": 2.42,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.85
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "182",
+      "product_id": "70",
+      "quantity": 0.4,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.81
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "187",
+      "product_id": "691",
+      "quantity": 4.13,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 8.25
+      }
+    },
+    {
+      "from_store": "154",
+      "to_store": "194",
+      "product_id": "77",
+      "quantity": 0.29,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.58
+      }
+    },
+    {
+      "from_store": "181",
+      "to_store": "1",
+      "product_id": "843",
+      "quantity": 0.24,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.48
+      }
+    },
+    {
+      "from_store": "181",
+      "to_store": "29",
+      "product_id": "118",
+      "quantity": 2.01,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.02
+      }
+    },
+    {
+      "from_store": "181",
+      "to_store": "118",
+      "product_id": "843",
+      "quantity": 0.73,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.46
+      }
+    },
+    {
+      "from_store": "181",
+      "to_store": "131",
+      "product_id": "207",
+      "quantity": 1.22,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.45
+      }
+    },
+    {
+      "from_store": "181",
+      "to_store": "134",
+      "product_id": "481",
+      "quantity": 1.26,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.51
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "18",
+      "product_id": "190",
+      "quantity": 0.38,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.76
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "118",
+      "product_id": "118",
+      "quantity": 5.26,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 10.53
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "131",
+      "product_id": "631",
+      "quantity": 0.67,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.33
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "145",
+      "product_id": "291",
+      "quantity": 3.06,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 6.12
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "183",
+      "product_id": "600",
+      "quantity": 1.3,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.6
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "194",
+      "product_id": "71",
+      "quantity": 1.91,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.83
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "194",
+      "product_id": "116",
+      "quantity": 0.9,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.8
+      }
+    },
+    {
+      "from_store": "182",
+      "to_store": "196",
+      "product_id": "116",
+      "quantity": 2.26,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 4.52
+      }
+    },
+    {
+      "from_store": "183",
+      "to_store": "1",
+      "product_id": "76",
+      "quantity": 0.99,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.99
+      }
+    },
+    {
+      "from_store": "183",
+      "to_store": "29",
+      "product_id": "116",
+      "quantity": 0.55,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.09
+      }
+    },
+    {
+      "from_store": "183",
+      "to_store": "29",
+      "product_id": "631",
+      "quantity": 1.94,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.87
+      }
+    },
+    {
+      "from_store": "183",
+      "to_store": "145",
+      "product_id": "578",
+      "quantity": 0.72,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.44
+      }
+    },
+    {
+      "from_store": "183",
+      "to_store": "187",
+      "product_id": "345",
+      "quantity": 0.21,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.43
+      }
+    },
+    {
+      "from_store": "187",
+      "to_store": "29",
+      "product_id": "118",
+      "quantity": 0.94,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.88
+      }
+    },
+    {
+      "from_store": "187",
+      "to_store": "46",
+      "product_id": "4",
+      "quantity": 6.97,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_demand_variability",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 13.95
+      }
+    },
+    {
+      "from_store": "187",
+      "to_store": "46",
+      "product_id": "119",
+      "quantity": 1.04,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.09
+      }
+    },
+    {
+      "from_store": "187",
+      "to_store": "147",
+      "product_id": "119",
+      "quantity": 1.21,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.43
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "29",
+      "product_id": "635",
+      "quantity": 2.73,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.46
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "29",
+      "product_id": "775",
+      "quantity": 0.19,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.37
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "46",
+      "product_id": "119",
+      "quantity": 1.6,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.2
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "154",
+      "product_id": "635",
+      "quantity": 1.67,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.34
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "181",
+      "product_id": "635",
+      "quantity": 0.08,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.16
+      }
+    },
+    {
+      "from_store": "188",
+      "to_store": "183",
+      "product_id": "775",
+      "quantity": 4.41,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 8.83
+      }
+    },
+    {
+      "from_store": "194",
+      "to_store": "151",
+      "product_id": "201",
+      "quantity": 1.13,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.26
+      }
+    },
+    {
+      "from_store": "194",
+      "to_store": "182",
+      "product_id": "387",
+      "quantity": 0.24,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.48
+      }
+    },
+    {
+      "from_store": "194",
+      "to_store": "196",
+      "product_id": "41",
+      "quantity": 0.18,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.36
+      }
+    },
+    {
+      "from_store": "194",
+      "to_store": "196",
+      "product_id": "631",
+      "quantity": 1.96,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.91
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "1",
+      "product_id": "58",
+      "quantity": 1.69,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.38
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "1",
+      "product_id": "76",
+      "quantity": 0.22,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.43
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "74",
+      "product_id": "26",
+      "quantity": 1.37,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 2.75
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "74",
+      "product_id": "291",
+      "quantity": 0.97,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.93
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "118",
+      "product_id": "426",
+      "quantity": 0.79,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.58
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "134",
+      "product_id": "26",
+      "quantity": 2.73,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 5.46
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "134",
+      "product_id": "481",
+      "quantity": 1.8,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 3.59
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "145",
+      "product_id": "58",
+      "quantity": 0.51,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 1.02
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "147",
+      "product_id": "119",
+      "quantity": 5.09,
+      "reason_codes": [
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 10.18
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "181",
+      "product_id": "76",
+      "quantity": 9.4,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 18.79
+      }
+    },
+    {
+      "from_store": "196",
+      "to_store": "182",
+      "product_id": "76",
+      "quantity": 0.25,
+      "reason_codes": [
+        "projected_stockout_at_destination",
+        "excess_inventory_at_source",
+        "high_delay_probability",
+        "transport_cost_acceptable"
+      ],
+      "cost_impact": {
+        "transport_cost": 0.49
+      }
+    }
+  ]
+}

@@ -1,0 +1,1490 @@
+{
+  "scenario": "optimization_run",
+  "manufacturing_actions": [
+    {
+      "product_id": "596",
+      "manufacture_quantity": 145.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 10646.84
+      }
+    },
+    {
+      "product_id": "345",
+      "manufacture_quantity": 22.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1611.27
+      }
+    },
+    {
+      "product_id": "223",
+      "manufacture_quantity": 31.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2264.18
+      }
+    },
+    {
+      "product_id": "26",
+      "manufacture_quantity": 32.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2336.07
+      }
+    },
+    {
+      "product_id": "494",
+      "manufacture_quantity": 6.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 444.79
+      }
+    },
+    {
+      "product_id": "691",
+      "manufacture_quantity": 140.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 10290.61
+      }
+    },
+    {
+      "product_id": "104",
+      "manufacture_quantity": 328.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 23981.25
+      }
+    },
+    {
+      "product_id": "300",
+      "manufacture_quantity": 397.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 29070.7
+      }
+    },
+    {
+      "product_id": "769",
+      "manufacture_quantity": 78.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5738.24
+      }
+    },
+    {
+      "product_id": "122",
+      "manufacture_quantity": 193.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 14165.09
+      }
+    },
+    {
+      "product_id": "76",
+      "manufacture_quantity": 13.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 947.61
+      }
+    },
+    {
+      "product_id": "478",
+      "manufacture_quantity": 26.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1903.59
+      }
+    },
+    {
+      "product_id": "41",
+      "manufacture_quantity": 113.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 8289.1
+      }
+    },
+    {
+      "product_id": "143",
+      "manufacture_quantity": 9.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 701.24
+      }
+    },
+    {
+      "product_id": "70",
+      "manufacture_quantity": 286.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 20895.39
+      }
+    },
+    {
+      "product_id": "310",
+      "manufacture_quantity": 16.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1189.3
+      }
+    },
+    {
+      "product_id": "496",
+      "manufacture_quantity": 3.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 251.42
+      }
+    },
+    {
+      "product_id": "387",
+      "manufacture_quantity": 20.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1477.91
+      }
+    },
+    {
+      "product_id": "117",
+      "manufacture_quantity": 207.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 15185.61
+      }
+    },
+    {
+      "product_id": "129",
+      "manufacture_quantity": 87.6,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 6400.36
+      }
+    },
+    {
+      "product_id": "207",
+      "manufacture_quantity": 48.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3569.23
+      }
+    },
+    {
+      "product_id": "23",
+      "manufacture_quantity": 56.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 4101.51
+      }
+    },
+    {
+      "product_id": "629",
+      "manufacture_quantity": 4.3,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 315.0
+      }
+    },
+    {
+      "product_id": "580",
+      "manufacture_quantity": 144.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 10550.45
+      }
+    },
+    {
+      "product_id": "638",
+      "manufacture_quantity": 78.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5737.84
+      }
+    },
+    {
+      "product_id": "4",
+      "manufacture_quantity": 247.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 18046.26
+      }
+    },
+    {
+      "product_id": "740",
+      "manufacture_quantity": 35.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2569.84
+      }
+    },
+    {
+      "product_id": "215",
+      "manufacture_quantity": 358.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 26212.45
+      }
+    },
+    {
+      "product_id": "684",
+      "manufacture_quantity": 2.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 212.82
+      }
+    },
+    {
+      "product_id": "578",
+      "manufacture_quantity": 76.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5583.62
+      }
+    },
+    {
+      "product_id": "99",
+      "manufacture_quantity": 20.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1507.24
+      }
+    },
+    {
+      "product_id": "90",
+      "manufacture_quantity": 47.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3478.99
+      }
+    },
+    {
+      "product_id": "21",
+      "manufacture_quantity": 55.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 4057.96
+      }
+    },
+    {
+      "product_id": "108",
+      "manufacture_quantity": 9.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 691.78
+      }
+    },
+    {
+      "product_id": "834",
+      "manufacture_quantity": 275.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 20146.99
+      }
+    },
+    {
+      "product_id": "58",
+      "manufacture_quantity": 12.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 931.2
+      }
+    },
+    {
+      "product_id": "74",
+      "manufacture_quantity": 8.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 622.04
+      }
+    },
+    {
+      "product_id": "363",
+      "manufacture_quantity": 45.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3284.12
+      }
+    },
+    {
+      "product_id": "292",
+      "manufacture_quantity": 92.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 6773.72
+      }
+    },
+    {
+      "product_id": "500",
+      "manufacture_quantity": 73.5,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5369.35
+      }
+    },
+    {
+      "product_id": "567",
+      "manufacture_quantity": 12.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 915.02
+      }
+    },
+    {
+      "product_id": "220",
+      "manufacture_quantity": 2.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 165.44
+      }
+    },
+    {
+      "product_id": "201",
+      "manufacture_quantity": 33.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2458.31
+      }
+    },
+    {
+      "product_id": "126",
+      "manufacture_quantity": 11.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 842.08
+      }
+    },
+    {
+      "product_id": "672",
+      "manufacture_quantity": 3.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 270.73
+      }
+    },
+    {
+      "product_id": "194",
+      "manufacture_quantity": 68.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5035.19
+      }
+    },
+    {
+      "product_id": "515",
+      "manufacture_quantity": 14.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1067.42
+      }
+    },
+    {
+      "product_id": "422",
+      "manufacture_quantity": 82.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 6017.07
+      }
+    },
+    {
+      "product_id": "600",
+      "manufacture_quantity": 53.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3915.47
+      }
+    },
+    {
+      "product_id": "291",
+      "manufacture_quantity": 26.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1933.77
+      }
+    },
+    {
+      "product_id": "783",
+      "manufacture_quantity": 125.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 9138.87
+      }
+    },
+    {
+      "product_id": "715",
+      "manufacture_quantity": 19.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1399.48
+      }
+    },
+    {
+      "product_id": "127",
+      "manufacture_quantity": 48.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3523.51
+      }
+    },
+    {
+      "product_id": "486",
+      "manufacture_quantity": 134.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 9853.97
+      }
+    },
+    {
+      "product_id": "802",
+      "manufacture_quantity": 216.3,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 15799.61
+      }
+    },
+    {
+      "product_id": "71",
+      "manufacture_quantity": 25.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1869.94
+      }
+    },
+    {
+      "product_id": "144",
+      "manufacture_quantity": 83.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 6087.2
+      }
+    },
+    {
+      "product_id": "554",
+      "manufacture_quantity": 104.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 7654.67
+      }
+    },
+    {
+      "product_id": "11",
+      "manufacture_quantity": 22.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1640.29
+      }
+    },
+    {
+      "product_id": "296",
+      "manufacture_quantity": 75.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5526.08
+      }
+    },
+    {
+      "product_id": "19",
+      "manufacture_quantity": 91.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 6707.75
+      }
+    },
+    {
+      "product_id": "426",
+      "manufacture_quantity": 37.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2771.36
+      }
+    },
+    {
+      "product_id": "686",
+      "manufacture_quantity": 3.8,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 276.93
+      }
+    },
+    {
+      "product_id": "190",
+      "manufacture_quantity": 28.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2060.22
+      }
+    },
+    {
+      "product_id": "796",
+      "manufacture_quantity": 51.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3768.27
+      }
+    },
+    {
+      "product_id": "439",
+      "manufacture_quantity": 21.9,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1601.27
+      }
+    },
+    {
+      "product_id": "166",
+      "manufacture_quantity": 130.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 9530.29
+      }
+    },
+    {
+      "product_id": "6",
+      "manufacture_quantity": 123.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 9033.46
+      }
+    },
+    {
+      "product_id": "38",
+      "manufacture_quantity": 17.9,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1309.72
+      }
+    },
+    {
+      "product_id": "84",
+      "manufacture_quantity": 6.4,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 465.21
+      }
+    },
+    {
+      "product_id": "810",
+      "manufacture_quantity": 61.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 4471.01
+      }
+    },
+    {
+      "product_id": "30",
+      "manufacture_quantity": 4.7,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 339.55
+      }
+    },
+    {
+      "product_id": "290",
+      "manufacture_quantity": 46.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3394.3
+      }
+    },
+    {
+      "product_id": "843",
+      "manufacture_quantity": 3.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 226.41
+      }
+    },
+    {
+      "product_id": "666",
+      "manufacture_quantity": 40.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2952.52
+      }
+    },
+    {
+      "product_id": "214",
+      "manufacture_quantity": 16.2,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1180.98
+      }
+    },
+    {
+      "product_id": "682",
+      "manufacture_quantity": 24.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1762.99
+      }
+    },
+    {
+      "product_id": "77",
+      "manufacture_quantity": 26.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1920.67
+      }
+    },
+    {
+      "product_id": "829",
+      "manufacture_quantity": 3.1,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 223.81
+      }
+    },
+    {
+      "product_id": "140",
+      "manufacture_quantity": 18.9,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1381.15
+      }
+    },
+    {
+      "product_id": "351",
+      "manufacture_quantity": 10.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 757.4
+      }
+    },
+    {
+      "product_id": "775",
+      "manufacture_quantity": 81.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5924.85
+      }
+    },
+    {
+      "product_id": "644",
+      "manufacture_quantity": 74.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 5422.08
+      }
+    },
+    {
+      "product_id": "631",
+      "manufacture_quantity": 47.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3471.4
+      }
+    },
+    {
+      "product_id": "729",
+      "manufacture_quantity": 1.6,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 120.51
+      }
+    },
+    {
+      "product_id": "240",
+      "manufacture_quantity": 48.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3503.57
+      }
+    },
+    {
+      "product_id": "763",
+      "manufacture_quantity": 10.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 730.44
+      }
+    },
+    {
+      "product_id": "774",
+      "manufacture_quantity": 47.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 3497.51
+      }
+    },
+    {
+      "product_id": "415",
+      "manufacture_quantity": 8.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 615.09
+      }
+    },
+    {
+      "product_id": "219",
+      "manufacture_quantity": 7.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 517.99
+      }
+    },
+    {
+      "product_id": "481",
+      "manufacture_quantity": 40.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2982.14
+      }
+    },
+    {
+      "product_id": "253",
+      "manufacture_quantity": 7.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 539.43
+      }
+    },
+    {
+      "product_id": "419",
+      "manufacture_quantity": 21.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1593.58
+      }
+    },
+    {
+      "product_id": "118",
+      "manufacture_quantity": 10.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 753.88
+      }
+    },
+    {
+      "product_id": "414",
+      "manufacture_quantity": 1.0,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 72.49
+      }
+    },
+    {
+      "product_id": "467",
+      "manufacture_quantity": 6.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 487.93
+      }
+    },
+    {
+      "product_id": "634",
+      "manufacture_quantity": 5.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 415.95
+      }
+    },
+    {
+      "product_id": "670",
+      "manufacture_quantity": 2.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 172.65
+      }
+    },
+    {
+      "product_id": "250",
+      "manufacture_quantity": 1.2,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 84.93
+      }
+    },
+    {
+      "product_id": "226",
+      "manufacture_quantity": 2.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 183.47
+      }
+    },
+    {
+      "product_id": "599",
+      "manufacture_quantity": 17.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1259.19
+      }
+    },
+    {
+      "product_id": "413",
+      "manufacture_quantity": 6.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 453.25
+      }
+    },
+    {
+      "product_id": "863",
+      "manufacture_quantity": 7.6,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 552.72
+      }
+    },
+    {
+      "product_id": "804",
+      "manufacture_quantity": 7.8,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 569.37
+      }
+    },
+    {
+      "product_id": "489",
+      "manufacture_quantity": 16.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1218.97
+      }
+    },
+    {
+      "product_id": "856",
+      "manufacture_quantity": 4.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 331.05
+      }
+    },
+    {
+      "product_id": "379",
+      "manufacture_quantity": 31.9,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 2327.65
+      }
+    },
+    {
+      "product_id": "635",
+      "manufacture_quantity": 21.4,
+      "reason_codes": [
+        "safety_stock_violation_prevented",
+        "manufacture_to_avoid_stockout",
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1561.98
+      }
+    },
+    {
+      "product_id": "549",
+      "manufacture_quantity": 9.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 679.37
+      }
+    },
+    {
+      "product_id": "381",
+      "manufacture_quantity": 8.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 638.4
+      }
+    },
+    {
+      "product_id": "193",
+      "manufacture_quantity": 16.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1171.61
+      }
+    },
+    {
+      "product_id": "212",
+      "manufacture_quantity": 1.1,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 83.29
+      }
+    },
+    {
+      "product_id": "314",
+      "manufacture_quantity": 25.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1829.16
+      }
+    },
+    {
+      "product_id": "397",
+      "manufacture_quantity": 6.2,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 450.16
+      }
+    },
+    {
+      "product_id": "699",
+      "manufacture_quantity": 8.5,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 621.21
+      }
+    },
+    {
+      "product_id": "396",
+      "manufacture_quantity": 13.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 989.94
+      }
+    },
+    {
+      "product_id": "370",
+      "manufacture_quantity": 19.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1417.34
+      }
+    },
+    {
+      "product_id": "719",
+      "manufacture_quantity": 2.4,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 172.94
+      }
+    },
+    {
+      "product_id": "150",
+      "manufacture_quantity": 5.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 373.39
+      }
+    },
+    {
+      "product_id": "110",
+      "manufacture_quantity": 1.2,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 88.13
+      }
+    },
+    {
+      "product_id": "411",
+      "manufacture_quantity": 27.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout",
+        "safety_stock_violation_prevented"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1971.51
+      }
+    },
+    {
+      "product_id": "151",
+      "manufacture_quantity": 0.8,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 58.64
+      }
+    },
+    {
+      "product_id": "468",
+      "manufacture_quantity": 7.3,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 535.26
+      }
+    },
+    {
+      "product_id": "228",
+      "manufacture_quantity": 0.4,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 31.44
+      }
+    },
+    {
+      "product_id": "114",
+      "manufacture_quantity": 25.7,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 1874.87
+      }
+    },
+    {
+      "product_id": "185",
+      "manufacture_quantity": 7.2,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 523.23
+      }
+    },
+    {
+      "product_id": "806",
+      "manufacture_quantity": 2.0,
+      "reason_codes": [
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 145.86
+      }
+    },
+    {
+      "product_id": "294",
+      "manufacture_quantity": 0.7,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 48.53
+      }
+    },
+    {
+      "product_id": "115",
+      "manufacture_quantity": 5.6,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 410.19
+      }
+    },
+    {
+      "product_id": "688",
+      "manufacture_quantity": 1.6,
+      "reason_codes": [
+        "high_delay_probability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 120.39
+      }
+    },
+    {
+      "product_id": "694",
+      "manufacture_quantity": 3.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "high_demand_variability"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 228.6
+      }
+    },
+    {
+      "product_id": "136",
+      "manufacture_quantity": 7.1,
+      "reason_codes": [
+        "high_delay_probability",
+        "manufacture_to_avoid_stockout"
+      ],
+      "cost_impact": {
+        "manufacturing_cost": 521.19
+      }
+    }
+  ]
+}

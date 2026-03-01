@@ -1,0 +1,14 @@
+{
+  "scenario": "optimization_run",
+  "optimized": {
+    "total_cost": 497847.62,
+    "total_transfers": 145,
+    "manufacturing_units": 6531.6,
+    "transfer_units": 253.6
+  },
+  "cost_breakdown": {
+    "manufacturing_cost": 477151.17,
+    "transfer_cost": 507.1,
+    "holding_cost": 20189.35
+  }
+}

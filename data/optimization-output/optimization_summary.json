@@ -1,0 +1,18 @@
+{
+  "status": "Optimal",
+  "total_cost": 497847.62,
+  "cost_breakdown": {
+    "manufacturing": 477151.17,
+    "transfer": 507.1,
+    "holding": 20189.35
+  },
+  "metrics": {
+    "total_manufacturing_units": 6531.6,
+    "total_transfer_units": 253.6,
+    "stores_optimized": 20,
+    "products_optimized": 139,
+    "manufacturing_decisions": 842,
+    "transfer_decisions": 145
+  },
+  "planning_horizon_days": 7
+}

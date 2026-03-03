@@ -790,7 +790,7 @@ with tab5:
             """Build drift detector from simulated rolling observations, return serializable results."""
             import json as _json
             import numpy as np
-            fm_df = pd.read_json(_json.loads(_fm_df_json))
+            fm_df = pd.read_json(_fm_df_json)
             detector = ForecastDriftDetector(
                 baseline_window=_bw, alert_window=_aw, mae_threshold=_thresh
             )

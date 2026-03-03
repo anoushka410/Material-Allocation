@@ -10,6 +10,83 @@ import os
 from pulp import *
 import warnings
 warnings.filterwarnings('ignore')
+import argparse
+from pathlib import Path
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCENARIO DEFINITIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ScenarioConfig:
+    """Configuration for scenario types with self-explanatory IDs and parameter overrides."""
+    
+    SCENARIOS = {
+        "base_case_standard_conditions": {
+            "description": "Normal forecast, normal transport cost, default risk penalties.",
+            "demand_multiplier": 1.0,
+            "transport_cost_multiplier": 1.0,
+            "lead_time_multiplier": 1.0,
+            "safety_stock_multiplier": 1.0,
+            "delay_probability_multiplier": 1.0,
+        },
+        "risk_aware_high_disruption": {
+            "description": "Increased delay probability and higher safety stock to simulate disruption risk.",
+            "demand_multiplier": 1.0,
+            "transport_cost_multiplier": 1.0,
+            "lead_time_multiplier": 1.2,
+            "safety_stock_multiplier": 1.4,
+            "delay_probability_multiplier": 1.8,
+        },
+        "cost_only_no_risk_penalty": {
+            "description": "Optimization minimizes cost only, without risk penalties.",
+            "demand_multiplier": 1.0,
+            "transport_cost_multiplier": 1.0,
+            "lead_time_multiplier": 1.0,
+            "safety_stock_multiplier": 0.5,
+            "delay_probability_multiplier": 0.0,
+        },
+        "demand_spike_high_forecast": {
+            "description": "Increased forecast values to simulate promotional or peak demand week.",
+            "demand_multiplier": 1.25,
+            "transport_cost_multiplier": 1.0,
+            "lead_time_multiplier": 1.0,
+            "safety_stock_multiplier": 1.2,
+            "delay_probability_multiplier": 1.0,
+        },
+        "transport_cost_increase_fuel_shock": {
+            "description": "Increased shipping costs to simulate fuel price or logistics inflation.",
+            "demand_multiplier": 1.0,
+            "transport_cost_multiplier": 1.5,
+            "lead_time_multiplier": 1.0,
+            "safety_stock_multiplier": 1.0,
+            "delay_probability_multiplier": 1.0,
+        },
+        "extended_lead_time_supplier_delay": {
+            "description": "Increased lead times to simulate supplier or customs delays.",
+            "demand_multiplier": 1.0,
+            "transport_cost_multiplier": 1.0,
+            "lead_time_multiplier": 1.5,
+            "safety_stock_multiplier": 1.3,
+            "delay_probability_multiplier": 1.2,
+        },
+    }
+    
+    @classmethod
+    def get_scenario(cls, scenario_id: str) -> dict:
+        """Get scenario configuration by ID. Defaults to base_case_standard_conditions."""
+        if scenario_id not in cls.SCENARIOS:
+            print(f"Warning: Unknown scenario '{scenario_id}'. Using base_case_standard_conditions.")
+            scenario_id = "base_case_standard_conditions"
+        return cls.SCENARIOS[scenario_id]
+    
+    @classmethod
+    def list_scenarios(cls) -> dict:
+        """List all available scenarios with descriptions."""
+        return {
+            sid: config["description"] 
+            for sid, config in cls.SCENARIOS.items()
+        }
+
 
 # Thresholds for reason codes
 THRESHOLDS = {'high_cv': 0.7, 'high_delay_prob': 0.5, 'capacity_ratio': 0.9}
@@ -87,15 +164,80 @@ def assign_manufacturing_reasons(s, p, qty, data, store_mfg_total):
     return reasons if reasons else ["aggregate_demand_exceeds_inventory"]
 
 
-def save_json_outputs(transfers, manufacturing, costs, output_dir):
+def _merge_unique(existing: list[dict], new: list[dict], key_fields: list[str]) -> list[dict]:
+    """Merge two lists of dicts, de-duping by a tuple of key_fields."""
+    seen = set()
+    out: list[dict] = []
+
+    def _key(r: dict) -> tuple:
+        return tuple(r.get(k) for k in key_fields)
+
+    for r in existing:
+        k = _key(r)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(r)
+    for r in new:
+        k = _key(r)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(r)
+    return out
+
+
+def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: str = "base_case_standard_conditions"):
+    """Save/append optimization results to flat JSON files.
+
+    Output schema (exactly 3 files under output_dir):
+      - transfer_recommendations.json  : {"scenario": "all", "transfers": [...]} where each transfer has scenario
+      - manufacturing_decisions.json   : {"scenario": "all", "manufacturing_actions": [...]} where each action has scenario
+      - scenario_summary.json          : {"scenario": "all", "scenarios": {<scenario_id>: {...}}, "scenario_ids": [...]}
+
+    Note: This is designed for dashboarding/NLP to load a single file per entity type.
+    """
     os.makedirs(output_dir, exist_ok=True)
-    
-    # 1. Transfer recommendations
-    transfer_json = {"scenario": "optimization_run", "transfers": transfers}
-    with open(f'{output_dir}/transfer_recommendations.json', 'w') as f:
-        json.dump(transfer_json, f, indent=2)
-    
-    # 2. Manufacturing decisions (aggregate by product)
+
+    if scenario_id not in ScenarioConfig.SCENARIOS:
+        print(f"Warning: Unknown scenario '{scenario_id}'. Using 'base_case_standard_conditions'.")
+        scenario_id = "base_case_standard_conditions"
+
+    out_dir = Path(output_dir)
+
+    # --- Transfers (append; each record includes scenario) ---
+    transfers_path = out_dir / "transfer_recommendations.json"
+    existing_transfers: list[dict] = []
+    if transfers_path.exists():
+        try:
+            existing_transfers = json.loads(transfers_path.read_text()).get("transfers", [])
+        except Exception:
+            existing_transfers = []
+
+    transfers_with_scenario = []
+    for t in transfers:
+        tt = dict(t)
+        tt["scenario"] = scenario_id
+        transfers_with_scenario.append(tt)
+
+    merged_transfers = _merge_unique(
+        existing_transfers,
+        transfers_with_scenario,
+        key_fields=["scenario", "from_store", "to_store", "product_id"],
+    )
+
+    transfers_path.write_text(json.dumps({"scenario": "all", "transfers": merged_transfers}, indent=2))
+
+    # --- Manufacturing (append; each record includes scenario) ---
+    mfg_path = out_dir / "manufacturing_decisions.json"
+    existing_mfg: list[dict] = []
+    if mfg_path.exists():
+        try:
+            existing_mfg = json.loads(mfg_path.read_text()).get("manufacturing_actions", [])
+        except Exception:
+            existing_mfg = []
+
+    # Aggregate by product within scenario as before, but attach scenario to each action
     mfg_by_product = {}
     for m in manufacturing:
         pid = m['product_id']
@@ -104,309 +246,359 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir):
         mfg_by_product[pid]['quantity'] += m['quantity']
         mfg_by_product[pid]['cost'] += m['cost']
         mfg_by_product[pid]['reasons'].update(m['reason_codes'])
-    
-    mfg_json = {
-        "scenario": "optimization_run",
-        "manufacturing_actions": [
-            {
-                "product_id": str(pid),
-                "manufacture_quantity": round(data['quantity'], 1),
-                "reason_codes": list(data['reasons']),
-                "cost_impact": {"manufacturing_cost": round(data['cost'], 2)}
-            }
-            for pid, data in mfg_by_product.items()
-        ]
-    }
-    with open(f'{output_dir}/manufacturing_decisions.json', 'w') as f:
-        json.dump(mfg_json, f, indent=2)
-    
-    # 3. Scenario summary
-    scenario_json = {
-        "scenario": "optimization_run",
+
+    mfg_actions_with_scenario = [
+        {
+            "scenario": scenario_id,
+            "product_id": str(pid),
+            "manufacture_quantity": round(data['quantity'], 1),
+            "reason_codes": list(data['reasons']),
+            "cost_impact": {"manufacturing_cost": round(data['cost'], 2)},
+        }
+        for pid, data in mfg_by_product.items()
+    ]
+
+    merged_mfg = _merge_unique(
+        existing_mfg,
+        mfg_actions_with_scenario,
+        key_fields=["scenario", "product_id"],
+    )
+
+    mfg_path.write_text(json.dumps({"scenario": "all", "manufacturing_actions": merged_mfg}, indent=2))
+
+    # --- Scenario summary (combined; keyed by scenario_id) ---
+    summary_path = out_dir / "scenario_summary.json"
+    existing_summary: dict = {}
+    if summary_path.exists():
+        try:
+            existing_summary = json.loads(summary_path.read_text())
+        except Exception:
+            existing_summary = {}
+
+    scenarios_dict = existing_summary.get("scenarios") if isinstance(existing_summary, dict) else None
+    if not isinstance(scenarios_dict, dict):
+        scenarios_dict = {}
+
+    scenarios_dict[scenario_id] = {
+        "scenario": scenario_id,
         "optimized": {
             "total_cost": round(costs['total'], 2),
             "total_transfers": len(transfers),
             "manufacturing_units": round(sum(m['quantity'] for m in manufacturing), 1),
-            "transfer_units": round(sum(t['quantity'] for t in transfers), 1)
+            "transfer_units": round(sum(t['quantity'] for t in transfers), 1),
         },
         "cost_breakdown": {
             "manufacturing_cost": round(costs['manufacturing'], 2),
             "transfer_cost": round(costs['transfer'], 2),
-            "holding_cost": round(costs['holding'], 2)
-        }
+            "holding_cost": round(costs['holding'], 2),
+        },
     }
-    with open(f'{output_dir}/scenario_summary.json', 'w') as f:
-        json.dump(scenario_json, f, indent=2)
-    
-    print(f"JSON outputs saved to {output_dir}/")
 
-# 1. LOAD DATA
-
-# Demand forecasts (7-day horizon per store-product)
-forecast = pd.read_csv('../demand-forecast/output/product_forecasts_wide.csv')
-forecast['total_demand_7d'] = forecast[[f'day+{i}' for i in range(1, 8)]].sum(axis=1)
-forecast['avg_daily_demand'] = forecast['total_demand_7d'] / 7
-
-# Historical parameters (for demand_std, safety stock calculation)
-historical = pd.read_csv('input/processed_store_product_params.csv')
-
-# Store supply parameters (lead times, delay probability)
-store_params = pd.read_csv('input/store_supply_params.csv')
-
-# Transport cost matrix (store-to-store)
-transport_matrix = pd.read_csv('input/transport_cost_matrix.csv', index_col=0).values
-
-# 2. PREPARE DATA
-
-# Merge demand with historical std
-demand_df = forecast.merge(
-    historical[['store_id', 'product_id', 'demand_std', 'city_id']],
-    on=['store_id', 'product_id'], how='left'
-)
-demand_df['demand_std'] = demand_df['demand_std'].fillna(demand_df['avg_daily_demand'] * 0.5)
-demand_df['city_id'] = demand_df['city_id'].fillna(0).astype(int)
-
-# Add supply chain params
-demand_df = demand_df.merge(
-    store_params[['store_id', 'lead_time_days_mean', 'delay_probability_mean']],
-    on='store_id', how='left'
-)
-demand_df['lead_time_days_mean'] = demand_df['lead_time_days_mean'].fillna(5)
-demand_df['delay_probability_mean'] = demand_df['delay_probability_mean'].fillna(0.7)
-
-# Simulate current inventory (in production: from inventory system)
-np.random.seed(42)
-if 'current_inventory' in historical.columns:
-    inv_lookup = historical.set_index(['store_id', 'product_id'])['current_inventory'].to_dict()
-    demand_df['current_inventory'] = demand_df.apply(
-        lambda r: inv_lookup.get((r['store_id'], r['product_id']), r['total_demand_7d'] * np.random.uniform(0.3, 0.8)), axis=1
+    scenario_ids = sorted(scenarios_dict.keys())
+    summary_path.write_text(
+        json.dumps({"scenario": "all", "scenarios": scenarios_dict, "scenario_ids": scenario_ids}, indent=2)
     )
-else:
-    demand_df['current_inventory'] = demand_df['total_demand_7d'] * np.random.uniform(0.3, 0.8, len(demand_df))
 
-# 3. SAFETY STOCK CALCULATION
-# Formula: SS = z × σ × √L × risk_factor
+    print(f"JSON outputs updated under {output_dir}/ (flat 3-file schema). Added scenario_id='{scenario_id}'")
 
-Z_95 = 1.65  # 95% service level
-demand_df['risk_factor'] = 1 + demand_df['delay_probability_mean']
-demand_df['safety_stock'] = (
-    Z_95 * demand_df['demand_std'] * 
-    np.sqrt(demand_df['lead_time_days_mean']) * 
-    demand_df['risk_factor']
-)
-demand_df['target_inventory'] = demand_df['total_demand_7d'] + demand_df['safety_stock']
 
-# 4. OPTIMIZATION SETUP
+def run_optimization(
+    scenario_id: str = "base_case_standard_conditions",
+    output_dir: str = "output-json",
+    output_csv_dir: str = "output-csv",
+    time_limit: int = 300,
+    seed: int = 42,
+) -> dict:
+    """Run the optimization end-to-end and write outputs.
 
-# Only consider valid (store, product) pairs from forecast
-# Forecast already contains top 50 products per store (by total sale_amount)
-stores = sorted(demand_df['store_id'].unique())
-valid_pairs = set(zip(demand_df['store_id'], demand_df['product_id']))
-products_per_store = {s: [p for (s2, p) in valid_pairs if s2 == s] for s in stores}
-n_stores = len(stores)
-n_pairs = len(valid_pairs)
+    This wraps the module's original script logic so it can be invoked from:
+    - CLI (python optimization/optimization.py --scenario-id ...)
+    - Streamlit app (subprocess call)
 
-print(f"Scope: {n_stores} stores, {n_pairs} store-product pairs (top 50 products/store)")
+    Returns a small summary dict.
+    """
 
-# Lookup dictionaries
-demand_lookup = demand_df.set_index(['store_id', 'product_id'])['total_demand_7d'].to_dict()
-safety_lookup = demand_df.set_index(['store_id', 'product_id'])['safety_stock'].to_dict()
-inv_lookup = demand_df.set_index(['store_id', 'product_id'])['current_inventory'].to_dict()
-shipping_lookup = store_params.set_index('store_id')['shipping_costs_mean'].to_dict()
+    scen = ScenarioConfig.get_scenario(scenario_id)
 
-# Cost parameters
-MFG_BASE = 50
-HOLDING_COST = 1.0
-TRANSPORT_SCALE = 0.1
-MFG_CAPACITY = 5000
+    base_dir = Path(__file__).resolve().parent
+    repo_root = base_dir.parent
 
-mfg_cost = {s: MFG_BASE * (1 + shipping_lookup.get(s, 450) / 1000) for s in stores}
+    # 1. LOAD DATA (paths resolved from repo root)
+    forecast_path = repo_root / 'demand-forecast' / 'output' / 'product_forecasts_wide.csv'
+    historical_path = base_dir / 'input' / 'processed_store_product_params.csv'
+    store_params_path = base_dir / 'input' / 'store_supply_params.csv'
+    transport_matrix_path = base_dir / 'input' / 'transport_cost_matrix.csv'
 
-transport_cost = {}
-for i in stores:
-    for j in stores:
-        if i != j and i < transport_matrix.shape[0] and j < transport_matrix.shape[1]:
-            transport_cost[(i, j)] = transport_matrix[i, j] * TRANSPORT_SCALE
-        else:
-            transport_cost[(i, j)] = 0 if i == j else 5.0
+    forecast = pd.read_csv(forecast_path)
+    forecast['total_demand_7d'] = forecast[[f'day+{i}' for i in range(1, 8)]].sum(axis=1)
+    forecast['avg_daily_demand'] = forecast['total_demand_7d'] / 7
 
-# =============================================================================
-# 5. BUILD OPTIMIZATION MODEL
-#
-# Decision Variables:
-#   x[s,p]     = manufacturing qty for store s, product p
-#   t[i,j,p]   = transfer qty from store i to store j for product p
-#   final_inv  = auxiliary for final inventory
-#
-# Objective: Minimize Total Cost
-#   min Σ(mfg_cost × x) + Σ(transport_cost × t) + Σ(holding_cost × final_inv)
-#
-# Constraints:
-#   1. Inventory balance: final_inv = current + manufactured + in - out
-#   2. Meet demand: final_inv ≥ demand + safety_stock
-#   3. Transfer limit: outgoing transfers ≤ current inventory
-#   4. Capacity: total manufacturing per store ≤ MFG_CAPACITY
-# =============================================================================
+    historical = pd.read_csv(historical_path)
+    store_params = pd.read_csv(store_params_path)
+    transport_matrix = pd.read_csv(transport_matrix_path, index_col=0).values
 
-model = LpProblem("Inventory_Optimization", LpMinimize)
+    # 2. PREPARE DATA
+    demand_df = forecast.merge(
+        historical[['store_id', 'product_id', 'demand_std', 'city_id']],
+        on=['store_id', 'product_id'], how='left'
+    )
+    demand_df['demand_std'] = demand_df['demand_std'].fillna(demand_df['avg_daily_demand'] * 0.5)
+    demand_df['city_id'] = demand_df['city_id'].fillna(0).astype(int)
 
-# Decision variables - only for valid (store, product) pairs
-x = LpVariable.dicts("mfg", list(valid_pairs), lowBound=0)
-final_inv = LpVariable.dicts("final_inv", list(valid_pairs), lowBound=0)
+    demand_df = demand_df.merge(
+        store_params[['store_id', 'lead_time_days_mean', 'delay_probability_mean']],
+        on='store_id', how='left'
+    )
+    demand_df['lead_time_days_mean'] = demand_df['lead_time_days_mean'].fillna(5)
+    demand_df['delay_probability_mean'] = demand_df['delay_probability_mean'].fillna(0.7)
 
-# Transfer variables: only between stores for same product (if product exists at both)
-all_products = set(p for (s, p) in valid_pairs)
-t = LpVariable.dicts("transfer", 
-    [(i, j, p) for i in stores for j in stores for p in all_products 
-     if i != j and (i, p) in valid_pairs and (j, p) in valid_pairs], 
-    lowBound=0)
+    # Apply scenario multipliers
+    demand_df['total_demand_7d'] = demand_df['total_demand_7d'] * float(scen.get('demand_multiplier', 1.0))
+    demand_df['avg_daily_demand'] = demand_df['avg_daily_demand'] * float(scen.get('demand_multiplier', 1.0))
+    demand_df['lead_time_days_mean'] = demand_df['lead_time_days_mean'] * float(scen.get('lead_time_multiplier', 1.0))
+    demand_df['delay_probability_mean'] = demand_df['delay_probability_mean'] * float(scen.get('delay_probability_multiplier', 1.0))
+    demand_df['delay_probability_mean'] = demand_df['delay_probability_mean'].clip(lower=0.0, upper=1.0)
 
-# Objective: minimize total cost
-model += (
-    lpSum(mfg_cost[s] * x[(s, p)] for (s, p) in valid_pairs) +
-    lpSum(transport_cost.get((i, j), 5) * t[(i, j, p)] 
-          for i in stores for j in stores for p in all_products 
-          if i != j and (i, p) in valid_pairs and (j, p) in valid_pairs) +
-    lpSum(HOLDING_COST * final_inv[(s, p)] for (s, p) in valid_pairs)
-)
+    np.random.seed(seed)
+    if 'current_inventory' in historical.columns:
+        inv_lookup_ = historical.set_index(['store_id', 'product_id'])['current_inventory'].to_dict()
+        demand_df['current_inventory'] = demand_df.apply(
+            lambda r: inv_lookup_.get((r['store_id'], r['product_id']), r['total_demand_7d'] * np.random.uniform(0.3, 0.8)), axis=1
+        )
+    else:
+        demand_df['current_inventory'] = demand_df['total_demand_7d'] * np.random.uniform(0.3, 0.8, len(demand_df))
 
-# Constraints - only for valid pairs
-for (s, p) in valid_pairs:
-    current = inv_lookup.get((s, p), 0)
-    transfers_in = lpSum(t[(i, s, p)] for i in stores if i != s and (i, p) in valid_pairs and (i, s, p) in t)
-    transfers_out = lpSum(t[(s, j, p)] for j in stores if j != s and (j, p) in valid_pairs and (s, j, p) in t)
-    
-    # 1. Inventory balance
-    model += final_inv[(s, p)] == current + x[(s, p)] + transfers_in - transfers_out
-    
-    # 2. Meet demand + safety stock
-    target = demand_lookup.get((s, p), 0) + safety_lookup.get((s, p), 0)
-    model += final_inv[(s, p)] >= target
-    
-    # 3. Transfer limit
-    model += transfers_out <= current
+    # 3. SAFETY STOCK
+    Z_95 = 1.65
+    demand_df['risk_factor'] = 1 + demand_df['delay_probability_mean']
+    demand_df['safety_stock'] = (
+        Z_95 * demand_df['demand_std'] *
+        np.sqrt(demand_df['lead_time_days_mean']) *
+        demand_df['risk_factor']
+    )
+    demand_df['safety_stock'] = demand_df['safety_stock'] * float(scen.get('safety_stock_multiplier', 1.0))
+    demand_df['target_inventory'] = demand_df['total_demand_7d'] + demand_df['safety_stock']
 
-# 4. Manufacturing capacity per store
-for s in stores:
-    model += lpSum(x[(s, p)] for p in products_per_store[s]) <= MFG_CAPACITY
+    # 4. OPTIMIZATION SETUP
+    stores = sorted(demand_df['store_id'].unique())
+    valid_pairs = set(zip(demand_df['store_id'], demand_df['product_id']))
+    products_per_store = {s: [p for (s2, p) in valid_pairs if s2 == s] for s in stores}
 
-# 6. SOLVE
+    demand_lookup = demand_df.set_index(['store_id', 'product_id'])['total_demand_7d'].to_dict()
+    safety_lookup = demand_df.set_index(['store_id', 'product_id'])['safety_stock'].to_dict()
+    inv_lookup = demand_df.set_index(['store_id', 'product_id'])['current_inventory'].to_dict()
+    shipping_lookup = store_params.set_index('store_id')['shipping_costs_mean'].to_dict()
 
-print(f"Solving: {n_stores} stores, {n_pairs} store-product pairs")
-status = model.solve(PULP_CBC_CMD(msg=0, timeLimit=300))
-print(f"Status: {LpStatus[status]}")
+    MFG_BASE = 50
+    HOLDING_COST = 1.0
+    TRANSPORT_SCALE = 0.1
+    MFG_CAPACITY = 5000
 
-# 7. EXTRACT RESULTS
+    mfg_cost = {s: MFG_BASE * (1 + shipping_lookup.get(s, 450) / 1000) for s in stores}
 
-# Build data dict for reason code assignment
-demand_df['demand_cv'] = (demand_df['demand_std'] / demand_df['avg_daily_demand']).fillna(0.5)
-cv_lookup = demand_df.set_index(['store_id', 'product_id'])['demand_cv'].to_dict()
-delay_lookup = demand_df.groupby('store_id')['delay_probability_mean'].first().to_dict()
+    transport_cost = {}
+    transport_mult = float(scen.get('transport_cost_multiplier', 1.0))
+    for i in stores:
+        for j in stores:
+            if i != j and i < transport_matrix.shape[0] and j < transport_matrix.shape[1]:
+                transport_cost[(i, j)] = transport_matrix[i, j] * TRANSPORT_SCALE * transport_mult
+            else:
+                transport_cost[(i, j)] = 0 if i == j else 5.0 * transport_mult
 
-reason_data = {
-    'inv': inv_lookup,
-    'demand': demand_lookup,
-    'safety': safety_lookup,
-    'cv': cv_lookup,
-    'delay': delay_lookup,
-    'transport': transport_cost,
-    'mfg': mfg_cost,
-    'capacity': MFG_CAPACITY
-}
+    model = LpProblem("Inventory_Optimization", LpMinimize)
 
-# Calculate total mfg per store for capacity check
-store_mfg_total = {}
-for (s, p) in valid_pairs:
-    qty = value(x[(s, p)])
-    if qty > 0.01:
-        store_mfg_total[s] = store_mfg_total.get(s, 0) + qty
+    x = LpVariable.dicts("mfg", list(valid_pairs), lowBound=0)
+    final_inv = LpVariable.dicts("final_inv", list(valid_pairs), lowBound=0)
 
-# Manufacturing decisions with reason codes
-mfg_results = []
-for (s, p) in valid_pairs:
-    qty = value(x[(s, p)])
-    if qty > 0.01:
-        reasons = assign_manufacturing_reasons(s, p, qty, reason_data, store_mfg_total)
-        mfg_results.append({
-            'store_id': s, 'product_id': p, 'qty': round(qty, 2),
-            'cost': round(qty * mfg_cost[s], 2), 'reason_codes': reasons
-        })
-mfg_df = pd.DataFrame(mfg_results)
+    all_products = set(p for (s, p) in valid_pairs)
+    t = LpVariable.dicts(
+        "transfer",
+        [(i, j, p) for i in stores for j in stores for p in all_products
+         if i != j and (i, p) in valid_pairs and (j, p) in valid_pairs],
+        lowBound=0,
+    )
 
-# Transfer decisions with reason codes
-transfer_results = []
-for (i, j, p) in t.keys():
-    qty = value(t[(i, j, p)])
-    if qty > 0.01:
-        reasons = assign_transfer_reasons(i, j, p, qty, reason_data)
-        transfer_results.append({
-            'from_store': i, 'to_store': j, 'product_id': p,
-            'qty': round(qty, 2), 'cost': round(qty * transport_cost.get((i, j), 5), 2),
-            'reason_codes': reasons
-        })
-transfer_df = pd.DataFrame(transfer_results)
+    model += (
+        lpSum(mfg_cost[s] * x[(s, p)] for (s, p) in valid_pairs) +
+        lpSum(transport_cost.get((i, j), 5) * t[(i, j, p)]
+              for i in stores for j in stores for p in all_products
+              if i != j and (i, p) in valid_pairs and (j, p) in valid_pairs) +
+        lpSum(HOLDING_COST * final_inv[(s, p)] for (s, p) in valid_pairs)
+    )
 
-# Final inventory
-inventory_results = [
-    {'store_id': s, 'product_id': p, 
-     'current': round(inv_lookup.get((s, p), 0), 2),
-     'final': round(value(final_inv[(s, p)]), 2),
-     'target': round(demand_lookup.get((s, p), 0) + safety_lookup.get((s, p), 0), 2)}
-    for (s, p) in valid_pairs
-]
-inventory_df = pd.DataFrame(inventory_results)
+    for (s, p) in valid_pairs:
+        current = inv_lookup.get((s, p), 0)
+        transfers_in = lpSum(t[(i, s, p)] for i in stores if i != s and (i, p) in valid_pairs and (i, s, p) in t)
+        transfers_out = lpSum(t[(s, j, p)] for j in stores if j != s and (j, p) in valid_pairs and (s, j, p) in t)
 
-# 8. COST SUMMARY
+        model += final_inv[(s, p)] == current + x[(s, p)] + transfers_in - transfers_out
+        target = demand_lookup.get((s, p), 0) + safety_lookup.get((s, p), 0)
+        model += final_inv[(s, p)] >= target
+        model += transfers_out <= current
 
-total_mfg = sum(value(x[(s, p)]) * mfg_cost[s] for (s, p) in valid_pairs)
-total_transfer = sum(value(t[k]) * transport_cost.get((k[0], k[1]), 5) for k in t.keys())
-total_holding = sum(HOLDING_COST * value(final_inv[(s, p)]) for (s, p) in valid_pairs)
-total_cost = total_mfg + total_transfer + total_holding
+    for s in stores:
+        model += lpSum(x[(s, p)] for p in products_per_store[s]) <= MFG_CAPACITY
 
-print(f"\n{'='*50}")
-print(f"COST BREAKDOWN")
-print(f"{'='*50}")
-print(f"Manufacturing: ${total_mfg:>12,.2f} ({100*total_mfg/total_cost:.1f}%)")
-print(f"Transfer:      ${total_transfer:>12,.2f} ({100*total_transfer/total_cost:.1f}%)")
-print(f"Holding:       ${total_holding:>12,.2f} ({100*total_holding/total_cost:.1f}%)")
-print(f"{'='*50}")
-print(f"TOTAL:         ${total_cost:>12,.2f}")
-print(f"\nManufacturing: {mfg_df['qty'].sum() if len(mfg_df) else 0:,.1f} units")
-print(f"Transfers:     {transfer_df['qty'].sum() if len(transfer_df) else 0:,.1f} units")
+    status = model.solve(PULP_CBC_CMD(msg=0, timeLimit=int(time_limit)))
 
-# 9. SAVE OUTPUTS
+    demand_df['demand_cv'] = (demand_df['demand_std'] / demand_df['avg_daily_demand']).fillna(0.5)
+    cv_lookup = demand_df.set_index(['store_id', 'product_id'])['demand_cv'].to_dict()
+    delay_lookup = demand_df.groupby('store_id')['delay_probability_mean'].first().to_dict()
 
-# CSV outputs
-output_dir = 'output-csv'
-os.makedirs(output_dir, exist_ok=True)
-mfg_df.to_csv(f'{output_dir}/optimization_manufacturing.csv', index=False)
-transfer_df.to_csv(f'{output_dir}/optimization_transfers.csv', index=False)
-inventory_df.to_csv(f'{output_dir}/optimization_inventory.csv', index=False)
-print(f"CSV outputs saved to {output_dir}/")
-
-# JSON outputs for NLP layer
-json_output_dir = 'output-json'
-transfers_json = [
-    {
-        'from_store': str(r['from_store']),
-        'to_store': str(r['to_store']),
-        'product_id': str(r['product_id']),
-        'quantity': r['qty'],
-        'reason_codes': r['reason_codes'],
-        'cost_impact': {'transport_cost': r['cost']}
+    reason_data = {
+        'inv': inv_lookup,
+        'demand': demand_lookup,
+        'safety': safety_lookup,
+        'cv': cv_lookup,
+        'delay': delay_lookup,
+        'transport': transport_cost,
+        'mfg': mfg_cost,
+        'capacity': MFG_CAPACITY,
     }
-    for r in transfer_results
-]
-mfg_json = [
-    {
-        'store_id': r['store_id'],
-        'product_id': r['product_id'],
-        'quantity': r['qty'],
-        'cost': r['cost'],
-        'reason_codes': r['reason_codes']
+
+    store_mfg_total = {}
+    for (s, p) in valid_pairs:
+        qty = value(x[(s, p)])
+        if qty and qty > 0.01:
+            store_mfg_total[s] = store_mfg_total.get(s, 0) + qty
+
+    mfg_results = []
+    for (s, p) in valid_pairs:
+        qty = value(x[(s, p)])
+        if qty and qty > 0.01:
+            reasons = assign_manufacturing_reasons(s, p, qty, reason_data, store_mfg_total)
+            mfg_results.append({
+                'store_id': s, 'product_id': p, 'qty': round(qty, 2),
+                'cost': round(qty * mfg_cost[s], 2), 'reason_codes': reasons,
+            })
+
+    transfer_results = []
+    for (i, j, p) in t.keys():
+        qty = value(t[(i, j, p)])
+        if qty and qty > 0.01:
+            reasons = assign_transfer_reasons(i, j, p, qty, reason_data)
+            transfer_results.append({
+                'from_store': i, 'to_store': j, 'product_id': p,
+                'qty': round(qty, 2), 'cost': round(qty * transport_cost.get((i, j), 5), 2),
+                'reason_codes': reasons,
+            })
+
+    inventory_results = [
+        {'store_id': s, 'product_id': p,
+         'current': round(inv_lookup.get((s, p), 0), 2),
+         'final': round(value(final_inv[(s, p)]), 2),
+         'target': round(demand_lookup.get((s, p), 0) + safety_lookup.get((s, p), 0), 2)}
+        for (s, p) in valid_pairs
+    ]
+
+    mfg_df = pd.DataFrame(mfg_results)
+    transfer_df = pd.DataFrame(transfer_results)
+    inventory_df = pd.DataFrame(inventory_results)
+
+    total_mfg = sum(value(x[(s, p)]) * mfg_cost[s] for (s, p) in valid_pairs)
+    total_transfer = sum(value(t[k]) * transport_cost.get((k[0], k[1]), 5) for k in t.keys())
+    total_holding = sum(HOLDING_COST * value(final_inv[(s, p)]) for (s, p) in valid_pairs)
+    total_cost = total_mfg + total_transfer + total_holding
+
+    Path(output_csv_dir).mkdir(parents=True, exist_ok=True)
+    mfg_df.to_csv(f'{output_csv_dir}/optimization_manufacturing.csv', index=False)
+    transfer_df.to_csv(f'{output_csv_dir}/optimization_transfers.csv', index=False)
+    inventory_df.to_csv(f'{output_csv_dir}/optimization_inventory.csv', index=False)
+
+    transfers_json = [
+        {
+            'from_store': str(r['from_store']),
+            'to_store': str(r['to_store']),
+            'product_id': str(r['product_id']),
+            'quantity': r['qty'],
+            'reason_codes': r['reason_codes'],
+            'cost_impact': {'transport_cost': r['cost']},
+        }
+        for r in transfer_results
+    ]
+    mfg_json = [
+        {
+            'store_id': r['store_id'],
+            'product_id': r['product_id'],
+            'quantity': r['qty'],
+            'cost': r['cost'],
+            'reason_codes': r['reason_codes'],
+        }
+        for r in mfg_results
+    ]
+
+    costs = {'total': total_cost, 'manufacturing': total_mfg, 'transfer': total_transfer, 'holding': total_holding}
+    save_json_outputs(transfers_json, mfg_json, costs, output_dir, scenario_id=scenario_id)
+
+    return {
+        'scenario': scenario_id,
+        'status': LpStatus[status],
+        'total_cost': float(total_cost),
+        'output_dir': output_dir,
     }
-    for r in mfg_results
-]
-costs = {'total': total_cost, 'manufacturing': total_mfg, 'transfer': total_transfer, 'holding': total_holding}
-save_json_outputs(transfers_json, mfg_json, costs, json_output_dir)
+
+
+def run_all_scenarios(
+    output_root: str = "output-json",
+    output_csv_root: str = "output-csv",
+    time_limit: int = 300,
+    seed: int = 42,
+) -> dict:
+    """Run optimization for every scenario in ScenarioConfig.
+
+    Outputs (flat):
+      - output_root/transfer_recommendations.json
+      - output_root/manufacturing_decisions.json
+      - output_root/scenario_summary.json
+
+    CSVs remain scenario-specific under output_csv_root/<scenario_id>/.
+    """
+    results = {}
+
+    # Ensure output_root exists and (optionally) clean legacy scenario folders
+    Path(output_root).mkdir(parents=True, exist_ok=True)
+
+    for scenario_id in ScenarioConfig.SCENARIOS.keys():
+        scenario_csv = str(Path(output_csv_root) / scenario_id)
+        res = run_optimization(
+            scenario_id=scenario_id,
+            output_dir=output_root,
+            output_csv_dir=scenario_csv,
+            time_limit=time_limit,
+            seed=seed,
+        )
+        results[scenario_id] = res
+
+    return results
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Run inventory optimization and write outputs")
+    p.add_argument('--scenario-id', default='base_case_standard_conditions')
+    p.add_argument('--all-scenarios', action='store_true', help='Run all scenarios and write to per-scenario folders')
+    p.add_argument('--output-dir', default='output-json')
+    p.add_argument('--output-csv-dir', default='output-csv')
+    p.add_argument('--time-limit', type=int, default=300)
+    p.add_argument('--seed', type=int, default=42)
+    return p.parse_args(argv)
+
+
+if __name__ == '__main__':
+    args = _parse_args()
+    if args.all_scenarios:
+        run_all_scenarios(
+            output_root=args.output_dir,
+            output_csv_root=args.output_csv_dir,
+            time_limit=args.time_limit,
+            seed=args.seed,
+        )
+    else:
+        run_optimization(
+            scenario_id=args.scenario_id,
+            output_dir=args.output_dir,
+            output_csv_dir=args.output_csv_dir,
+            time_limit=args.time_limit,
+            seed=args.seed,
+        )
+    raise SystemExit(0)
 

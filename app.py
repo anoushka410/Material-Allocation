@@ -9,14 +9,23 @@ import ast
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import tempfile
+import zipfile
+import os
 
 from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation
 from nlp.refiner import refine_explanation
 from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios, sensitivity_analysis_text
 from optimization.stochastic import generate_scenarios, compute_cvar
+from optimization.scenarios import ScenarioRegistry
 from monitoring.drift import ForecastDriftDetector
 from export.kpi_export import export_all_kpis
+
+SAMPLE_DATA_DIR = "optimization/output-json"
+
+if "selected_scenario" not in st.session_state:
+    st.session_state.selected_scenario = None
 
 
 def _ping_ollama() -> bool:
@@ -46,6 +55,130 @@ def _ensure_ollama() -> tuple[bool, str]:
         if _ping_ollama():
             return True, "Ollama started automatically."
     return False, "Ollama started but did not respond in time. Using keyword fallback."
+
+
+def _get_available_scenarios(output_root: str = SAMPLE_DATA_DIR) -> list[str]:
+    """Return scenario IDs available in the flat scenario_summary.json."""
+    try:
+        summary_path = os.path.join(output_root, "scenario_summary.json")
+        if not os.path.exists(summary_path):
+            return []
+        combined = load_json(summary_path)
+        ids = combined.get("scenario_ids") or list((combined.get("scenarios") or {}).keys())
+        return sorted([str(x) for x in ids])
+    except Exception:
+        return []
+
+
+def _load_all_data(data_dir: str | None = None):
+    """Load all optimization and forecast data into a single dict.
+
+    Flat JSON schema (no per-scenario folders):
+      - optimization/output-json/scenario_summary.json
+      - optimization/output-json/transfer_recommendations.json
+      - optimization/output-json/manufacturing_decisions.json
+
+    Transfers/manufacturing are filtered in-memory by selected scenario.
+    """
+    if data_dir is None:
+        data_dir = SAMPLE_DATA_DIR
+
+    d: dict = {}
+
+    # Combined scenario summary file (all scenarios)
+    combined_summary = {}
+    try:
+        combined_summary = load_json(f"{SAMPLE_DATA_DIR}/scenario_summary.json")
+    except Exception:
+        combined_summary = {}
+
+    scenario_id = st.session_state.selected_scenario
+    if not scenario_id:
+        try:
+            scenario_ids = combined_summary.get("scenario_ids") or list((combined_summary.get("scenarios") or {}).keys())
+            scenario_id = scenario_ids[0] if scenario_ids else None
+            st.session_state.selected_scenario = scenario_id
+        except Exception:
+            scenario_id = None
+
+    # Pick the selected scenario's summary for dashboard KPIs
+    if scenario_id and isinstance(combined_summary, dict):
+        d["scenario"] = (combined_summary.get("scenarios") or {}).get(scenario_id, {})
+    else:
+        d["scenario"] = {}
+
+    # Load flat detailed JSONs
+    try:
+        transfers_all = load_json(f"{SAMPLE_DATA_DIR}/transfer_recommendations.json")
+    except Exception:
+        transfers_all = {}
+
+    try:
+        mfg_all = load_json(f"{SAMPLE_DATA_DIR}/manufacturing_decisions.json")
+    except Exception:
+        mfg_all = {}
+
+    # Filter to selected scenario
+    if scenario_id:
+        transfers = [t for t in (transfers_all.get("transfers") or []) if str(t.get("scenario")) == str(scenario_id)]
+        mfg_actions = [m for m in (mfg_all.get("manufacturing_actions") or []) if str(m.get("scenario")) == str(scenario_id)]
+        d["transfers"] = {"scenario": scenario_id, "transfers": transfers}
+        d["manufacturing"] = {"scenario": scenario_id, "manufacturing_actions": mfg_actions}
+    else:
+        d["transfers"] = {"scenario": "unknown", "transfers": []}
+        d["manufacturing"] = {"scenario": "unknown", "manufacturing_actions": []}
+
+    # Scenario-specific CSVs remain under optimization/output-csv/<scenario_id>/
+    if scenario_id:
+        inv_path = f"optimization/output-csv/{scenario_id}/optimization_inventory.csv"
+        tr_path = f"optimization/output-csv/{scenario_id}/optimization_transfers.csv"
+        mfg_path = f"optimization/output-csv/{scenario_id}/optimization_manufacturing.csv"
+    else:
+        inv_path = "optimization/output-csv/optimization_inventory.csv"
+        tr_path = "optimization/output-csv/optimization_transfers.csv"
+        mfg_path = "optimization/output-csv/optimization_manufacturing.csv"
+
+    d["inventory"] = load_csv(inv_path) if os.path.exists(inv_path) else []
+    d["opt_transfers"] = load_csv(tr_path) if os.path.exists(tr_path) else []
+    d["opt_manufacturing"] = load_csv(mfg_path) if os.path.exists(mfg_path) else []
+    d["forecast_metrics"] = load_csv("demand-forecast/output/product_forecast_metrics.csv")
+
+    d["scenario_summary_all"] = combined_summary
+
+    return d
+
+
+@st.cache_data(show_spinner=False)
+def _load_all_data_cached(selected_scenario_id: str):
+    """Cache per selected scenario to avoid mixing scenario state."""
+    # Ensure session state is set for the loader
+    st.session_state.selected_scenario = selected_scenario_id
+    return _load_all_data(SAMPLE_DATA_DIR)
+
+
+def _run_optimization_from_app(scenario_id: str, all_scenarios: bool = False) -> tuple[bool, str]:
+    """Run optimization as a subprocess and return (ok, message)."""
+    try:
+        cmd = [
+            "python",
+            "optimization/optimization.py",
+            "--output-dir",
+            "optimization/output-json",
+            "--output-csv-dir",
+            "optimization/output-csv",
+        ]
+        if all_scenarios:
+            cmd.append("--all-scenarios")
+        else:
+            cmd.extend(["--scenario-id", scenario_id])
+
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            return False, (r.stderr or r.stdout or "Optimization failed").strip()
+        return True, (r.stdout or "Optimization complete").strip()
+    except Exception as e:
+        return False, str(e)
+
 
 st.set_page_config(
     page_title="Supply Chain Analytics",
@@ -175,8 +308,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-SAMPLE_DATA_DIR = "optimization/output-json"
-
 INTENT_LABELS = {
     "explain_transfer": "Transfer Details",
     "explain_manufacturing": "Manufacturing Details",
@@ -280,31 +411,6 @@ with st.sidebar:
 AVATAR_USER = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#334155" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">U</text></svg>'''
 AVATAR_AI = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0ea5e9" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">AI</text></svg>'''
 
-# ── Helper: load data once per session ────────────────────────────────────────
-
-@st.cache_data(show_spinner=False)
-def _load_all_data():
-    """Load all optimization and forecast data into a single dict."""
-    d = {}
-    try:
-        d["scenario"] = load_json(f"{SAMPLE_DATA_DIR}/scenario_summary.json")
-    except Exception:
-        d["scenario"] = {}
-    try:
-        d["transfers"] = load_json(f"{SAMPLE_DATA_DIR}/transfer_recommendations.json")
-    except Exception:
-        d["transfers"] = {}
-    try:
-        d["manufacturing"] = load_json(f"{SAMPLE_DATA_DIR}/manufacturing_decisions.json")
-    except Exception:
-        d["manufacturing"] = {}
-    d["inventory"] = load_csv("optimization/output-csv/optimization_inventory.csv")
-    d["opt_transfers"] = load_csv("optimization/output-csv/optimization_transfers.csv")
-    d["opt_manufacturing"] = load_csv("optimization/output-csv/optimization_manufacturing.csv")
-    d["forecast_metrics"] = load_csv("demand-forecast/output/product_forecast_metrics.csv")
-    return d
-
-
 # ── Tab layout ─────────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -320,7 +426,71 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab2:
-    _all = _load_all_data()
+    st.markdown("### Run Optimization")
+
+    # Available scenarios come from the registry (what we *can* run)
+    registry_ids = list(ScenarioRegistry.SCENARIOS.keys())
+
+    # Available scenarios already generated on disk (from flat scenario_summary.json)
+    generated_ids = _get_available_scenarios(SAMPLE_DATA_DIR)
+
+    # Use generated list if present; else fall back to registry list
+    scenario_options = generated_ids if generated_ids else registry_ids
+
+    if scenario_options and st.session_state.selected_scenario not in scenario_options:
+        st.session_state.selected_scenario = scenario_options[0]
+
+    scen_col1, scen_col2, scen_col3 = st.columns([2, 1, 1])
+    with scen_col1:
+        selected = st.selectbox(
+            "View scenario",
+            options=scenario_options,
+            index=scenario_options.index(st.session_state.selected_scenario) if st.session_state.selected_scenario in scenario_options else 0,
+        )
+        st.session_state.selected_scenario = selected
+
+    with scen_col2:
+        run_one = st.button("Run selected", use_container_width=True)
+    with scen_col3:
+        run_all = st.button("Run all", use_container_width=True)
+
+    if run_one:
+        with st.spinner(f"Running optimization: {st.session_state.selected_scenario} …"):
+            ok, msg = _run_optimization_from_app(st.session_state.selected_scenario, all_scenarios=False)
+        if ok:
+            try:
+                st.cache_data.clear()
+            except Exception:
+                pass
+            st.success("Optimization finished. Reloading outputs…")
+            st.code(msg)
+            st.rerun()
+        else:
+            st.error("Optimization failed")
+            st.code(msg)
+
+    if run_all:
+        with st.spinner("Running optimization for all scenarios …"):
+            ok, msg = _run_optimization_from_app("base_case_standard_conditions", all_scenarios=True)
+        if ok:
+            try:
+                st.cache_data.clear()
+            except Exception:
+                pass
+            st.success("All scenarios finished. Reloading outputs…")
+            st.code(msg)
+            st.rerun()
+        else:
+            st.error("Optimization failed")
+            st.code(msg)
+
+    st.caption(
+        "Click **Run all** once to generate scenario_summary.json with all scenarios. Use **View scenario** to switch dashboards."
+    )
+
+    st.markdown("---")
+
+    _all = _load_all_data_cached(st.session_state.selected_scenario or "")
     scenario_data = _all.get("scenario", {})
     optimized = scenario_data.get("optimized", {})
     cost_breakdown = scenario_data.get("cost_breakdown", {})
@@ -331,6 +501,10 @@ with tab2:
     opt_manufacturing = _all.get("opt_manufacturing", [])
 
     st.markdown("### Optimization Overview")
+
+    # Display the scenario ID from loaded data
+    current_scenario_id = scenario_data.get("scenario", "unknown")
+    st.info(f"**Scenario:** {current_scenario_id}")
 
     # ── KPI Metric Row ─────────────────────────────────────────────────────────
     total_cost = optimized.get("total_cost", 0)
@@ -610,7 +784,7 @@ with tab3:
 with tab4:
     _all4 = _load_all_data()
     _scenario4 = _all4.get("scenario", {})
-    _transfers4 = _all4.get("transfers", {}).get("transfers", [])
+    _transfers4 = _all4.get("transfers", {}).get("transfers", []) if isinstance(_all4.get("transfers"), dict) else (_all4.get("transfers") or [])
 
     st.markdown("### Stochastic Demand Scenario Analysis")
     st.markdown(
@@ -626,9 +800,31 @@ with tab4:
     with col_cfg3:
         alpha_cvar = st.slider("CVaR confidence level (α)", 0.80, 0.99, 0.95, step=0.01)
 
-    # Build mean demands from the transfers/manufacturing data
     @st.cache_data(show_spinner=False)
-    def _build_mean_demands(transfers_json_str: str):
+    def _build_mean_demands_from_forecast(path_wide: str, max_pairs: int = 30):
+        """Build mean daily demand per (store_id, product_id) from forecast output files."""
+        if not os.path.exists(path_wide):
+            return {}
+        df = pd.read_csv(path_wide)
+        if "store_id" not in df.columns or "product_id" not in df.columns:
+            return {}
+        day_cols = [c for c in df.columns if c.startswith("day+")]
+        if not day_cols:
+            return {}
+        # mean over horizon
+        df["mean_demand"] = df[day_cols].mean(axis=1)
+        # keep top pairs by demand for speed
+        df = df.sort_values("mean_demand", ascending=False).head(max_pairs)
+        out = {}
+        for _, r in df.iterrows():
+            try:
+                out[(int(r["store_id"]), str(r["product_id"]))] = float(r["mean_demand"])  # type: ignore[arg-type]
+            except Exception:
+                continue
+        return out
+
+    @st.cache_data(show_spinner=False)
+    def _build_mean_demands_from_transfers(transfers_json_str: str, max_pairs: int = 30):
         """Approximate mean demands from transfer destination quantities."""
         import json as _json
         transfers = _json.loads(transfers_json_str)
@@ -639,62 +835,59 @@ with tab4:
                 demands[key] = demands.get(key, 0.0) + float(t.get("quantity", 0.0))
             except Exception:
                 pass
-        # Convert back to tuple keys for generate_scenarios
         result = {}
         for k, v in demands.items():
             parts = k.split("_", 1)
-            result[(int(parts[0]), parts[1])] = v
-        return result
+            try:
+                result[(int(parts[0]), parts[1])] = v
+            except Exception:
+                continue
+        # limit size
+        return dict(list(result.items())[:max_pairs])
 
-    mean_demands = _build_mean_demands(json.dumps(_transfers4))
+    forecast_path = "demand-forecast/output/product_forecasts_wide.csv"
+    mean_demands = _build_mean_demands_from_forecast(forecast_path, max_pairs=30)
+    if not mean_demands and _transfers4:
+        mean_demands = _build_mean_demands_from_transfers(json.dumps(_transfers4), max_pairs=30)
 
-    # Use a small subset for display (≤ 30 pairs for performance)
-    sample_demands = dict(list(mean_demands.items())[:30]) if len(mean_demands) > 30 else mean_demands
-
-    if not sample_demands:
-        st.warning("No demand data available for scenario generation.")
+    if not mean_demands:
+        st.warning(
+            "No demand data available for scenario generation. "
+            "Generate demand forecasts (demand-forecast/output/product_forecasts_wide.csv) or run optimization first."
+        )
     else:
         with st.spinner(f"Generating {n_scen} demand scenarios…"):
             scenarios, probs = generate_scenarios(
-                sample_demands,
+                mean_demands,
                 n_scenarios=n_scen,
                 cv=demand_cv,
                 random_state=42,
             )
 
-        # Scenario cost proxy: sum of demands × unit cost for each scenario
         unit_cost = 50.0
-        scenario_costs = [
-            sum(v * unit_cost for v in s.values()) for s in scenarios
-        ]
+        scenario_costs = [sum(v * unit_cost for v in s.values()) for s in scenarios]
 
         expected_cost = float(sum(c * p for c, p in zip(scenario_costs, probs)))
         var_val = float(pd.Series(scenario_costs).quantile(alpha_cvar))
         cvar_val = compute_cvar(scenario_costs, alpha=alpha_cvar)
 
-        # ── KPI row ─────────────────────────────────────────────────────────
         sk1, sk2, sk3, sk4 = st.columns(4)
         sk1.metric("Expected Cost", f"${expected_cost:,.0f}")
         sk2.metric(f"VaR ({alpha_cvar:.0%})", f"${var_val:,.0f}")
         sk3.metric(f"CVaR ({alpha_cvar:.0%})", f"${cvar_val:,.0f}")
         risk_premium = cvar_val - expected_cost
-        sk4.metric("Risk Premium", f"${risk_premium:,.0f}",
-                   delta=f"{risk_premium/expected_cost*100:.1f}% of EV" if expected_cost else None)
+        sk4.metric("Risk Premium", f"${risk_premium:,.0f}", delta=f"{risk_premium/expected_cost*100:.1f}% of EV" if expected_cost else None)
 
         st.markdown("---")
 
-        # ── Distribution chart ───────────────────────────────────────────────
         col_dist, col_cdf = st.columns(2)
         with col_dist:
             st.markdown("#### Scenario Cost Distribution")
             scen_df = pd.DataFrame({"scenario": range(1, n_scen + 1), "cost": scenario_costs})
             fig_hist = px.histogram(scen_df, x="cost", nbins=20, color_discrete_sequence=["#0ea5e9"])
-            fig_hist.add_vline(x=expected_cost, line_dash="solid", line_color="#f97316",
-                               annotation_text="E[cost]")
-            fig_hist.add_vline(x=var_val, line_dash="dash", line_color="#dc2626",
-                               annotation_text=f"VaR({alpha_cvar:.0%})")
-            fig_hist.add_vline(x=cvar_val, line_dash="dot", line_color="#7c3aed",
-                               annotation_text=f"CVaR({alpha_cvar:.0%})")
+            fig_hist.add_vline(x=expected_cost, line_dash="solid", line_color="#f97316", annotation_text="E[cost]")
+            fig_hist.add_vline(x=var_val, line_dash="dash", line_color="#dc2626", annotation_text=f"VaR({alpha_cvar:.0%})")
+            fig_hist.add_vline(x=cvar_val, line_dash="dot", line_color="#7c3aed", annotation_text=f"CVaR({alpha_cvar:.0%})")
             fig_hist.update_layout(margin=dict(t=30, b=10))
             st.plotly_chart(fig_hist, use_container_width=True)
 
@@ -703,14 +896,12 @@ with tab4:
             sorted_costs = sorted(scenario_costs)
             cdf_y = [(i + 1) / n_scen for i in range(n_scen)]
             fig_cdf = px.line(x=sorted_costs, y=cdf_y, labels={"x": "Cost ($)", "y": "Cumulative Probability"})
-            fig_cdf.add_vline(x=var_val, line_dash="dash", line_color="#dc2626",
-                              annotation_text=f"VaR({alpha_cvar:.0%})")
+            fig_cdf.add_vline(x=var_val, line_dash="dash", line_color="#dc2626", annotation_text=f"VaR({alpha_cvar:.0%})")
             fig_cdf.update_layout(margin=dict(t=30, b=10))
             st.plotly_chart(fig_cdf, use_container_width=True)
 
         st.markdown("---")
 
-        # ── Scenario comparison ───────────────────────────────────────────────
         st.markdown("### Scenario Comparison (Baseline vs. Service-First)")
         st.markdown("Simulate a *service-first* scenario with 20% more demand (proxy for prioritising service level over cost).")
 
@@ -737,12 +928,11 @@ with tab4:
 
         st.markdown("---")
 
-        # ── Sensitivity analysis ─────────────────────────────────────────────
         st.markdown("### Sensitivity: Cost vs. Demand CV")
         cv_values = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
         sens_costs = []
         for cv_val in cv_values:
-            scen_cv, probs_cv = generate_scenarios(sample_demands, n_scenarios=30, cv=cv_val, random_state=42)
+            scen_cv, probs_cv = generate_scenarios(mean_demands, n_scenarios=30, cv=cv_val, random_state=42)
             cost_cv = sum(c * p for c, p in zip([sum(v * unit_cost for v in s.values()) for s in scen_cv], probs_cv))
             sens_costs.append(cost_cv)
 
@@ -751,8 +941,7 @@ with tab4:
             st.markdown(sens_text)
 
         sens_df = pd.DataFrame({"Demand CV": cv_values, "Expected Cost ($)": sens_costs})
-        fig_sens = px.line(sens_df, x="Demand CV", y="Expected Cost ($)",
-                           markers=True, color_discrete_sequence=["#0ea5e9"])
+        fig_sens = px.line(sens_df, x="Demand CV", y="Expected Cost ($)", markers=True, color_discrete_sequence=["#0ea5e9"])
         fig_sens.update_layout(margin=dict(t=10, b=10))
         st.plotly_chart(fig_sens, use_container_width=True)
 
@@ -764,6 +953,11 @@ with tab4:
 with tab5:
     _all5 = _load_all_data()
     fm5 = _all5.get("forecast_metrics", [])
+
+    # Data for export
+    _scen5 = _all5.get("scenario", {})
+    _trans5 = _all5.get("transfers", {})
+    _mfg5 = _all5.get("manufacturing", {})
 
     st.markdown("### Forecast Drift Monitoring")
     st.markdown(
@@ -788,7 +982,6 @@ with tab5:
         @st.cache_data(show_spinner=False)
         def _build_drift_data(_fm_df_json, _bw, _aw, _thresh):
             """Build drift detector from simulated rolling observations, return serializable results."""
-            import json as _json
             import numpy as np
             fm_df = pd.read_json(_fm_df_json)
             detector = ForecastDriftDetector(
@@ -813,33 +1006,179 @@ with tab5:
             baseline_win, alert_win, mae_thresh,
         )
 
-        # ── Metric cards ─────────────────────────────────────────────────────
-        mk1, mk2, mk3, mk4 = st.columns(4)
-        mk1.metric("Monitored Pairs", len(summary_df))
-        mk2.metric("Total Alerts", len(alerts_df))
-        sw_alerts = len(alerts_df[alerts_df["method"] == "sliding_window"]) if len(alerts_df) > 0 else 0
-        cusum_alerts = len(alerts_df[alerts_df["method"] == "cusum"]) if len(alerts_df) > 0 else 0
-        mk3.metric("Sliding-Window Alerts", sw_alerts)
-        mk4.metric("CUSUM Alerts", cusum_alerts)
+        # Executive KPIs
+        monitored_pairs = len(summary_df)
+        total_alerts = len(alerts_df)
+        sw_alerts = int((alerts_df["method"] == "sliding_window").sum()) if total_alerts else 0
+        cusum_alerts = int((alerts_df["method"] == "cusum").sum()) if total_alerts else 0
+
+        mk1, mk2, mk3, mk4, mk5 = st.columns(5)
+        mk1.metric("Monitored Pairs", monitored_pairs)
+        mk2.metric("Total Alerts", total_alerts)
+        mk3.metric("Sliding-Window", sw_alerts)
+        mk4.metric("CUSUM", cusum_alerts)
+        alert_rate = (total_alerts / monitored_pairs) if monitored_pairs else 0.0
+        mk5.metric("Alert Rate", f"{alert_rate:.1%}")
 
         st.markdown("---")
 
-        if len(alerts_df) > 0:
-            st.markdown("#### 🚨 Drift Alerts")
+        # Make large tables usable: summarize, then let users drill down
+        if total_alerts > 0:
+            alerts_df = alerts_df.copy()
+            for c in ("baseline_mae", "recent_mae", "threshold_ratio"):
+                if c in alerts_df.columns:
+                    alerts_df[c] = pd.to_numeric(alerts_df[c], errors="coerce")
+
+            # Severity buckets on ratio (simple, explainable)
+            def _severity_bucket(r: float) -> str:
+                try:
+                    if r >= 3.0:
+                        return "Critical (≥3×)"
+                    if r >= 2.0:
+                        return "High (2–3×)"
+                    if r >= 1.5:
+                        return "Medium (1.5–2×)"
+                    return "Low (<1.5×)"
+                except Exception:
+                    return "Unknown"
+
+            alerts_df["severity"] = alerts_df.get("threshold_ratio", pd.Series([None] * len(alerts_df))).apply(_severity_bucket)
+            alerts_df["store_id"] = alerts_df["store_id"].astype(str)
+            alerts_df["product_id"] = alerts_df["product_id"].astype(str)
+
+            # Primary summary visuals
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                st.markdown("#### Where is drift happening? (Top stores)")
+                store_top = (
+                    alerts_df.groupby("store_id", as_index=False)
+                    .agg(alerts=("store_id", "size"), avg_ratio=("threshold_ratio", "mean"))
+                    .sort_values(["alerts", "avg_ratio"], ascending=False)
+                    .head(15)
+                )
+                fig_store = px.bar(
+                    store_top,
+                    x="alerts",
+                    y="store_id",
+                    orientation="h",
+                    color="avg_ratio",
+                    color_continuous_scale="Reds",
+                    labels={"alerts": "# Alerts", "store_id": "Store", "avg_ratio": "Avg ratio"},
+                    text_auto=True,
+                )
+                fig_store.update_layout(yaxis=dict(autorange="reversed"), margin=dict(t=10, b=10))
+                st.plotly_chart(fig_store, use_container_width=True)
+
+            with col_a2:
+                st.markdown("#### What is drifting? (Top products)")
+                prod_top = (
+                    alerts_df.groupby("product_id", as_index=False)
+                    .agg(alerts=("product_id", "size"), avg_ratio=("threshold_ratio", "mean"))
+                    .sort_values(["alerts", "avg_ratio"], ascending=False)
+                    .head(15)
+                )
+                fig_prod = px.bar(
+                    prod_top,
+                    x="alerts",
+                    y="product_id",
+                    orientation="h",
+                    color="avg_ratio",
+                    color_continuous_scale="Reds",
+                    labels={"alerts": "# Alerts", "product_id": "Product", "avg_ratio": "Avg ratio"},
+                    text_auto=True,
+                )
+                fig_prod.update_layout(yaxis=dict(autorange="reversed"), margin=dict(t=10, b=10))
+                st.plotly_chart(fig_prod, use_container_width=True)
+
+            st.markdown("---")
+
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                st.markdown("#### Severity distribution")
+                sev_df = (
+                    alerts_df.groupby(["severity"], as_index=False)
+                    .size()
+                    .rename(columns={"size": "count"})
+                )
+                # ordering
+                order = ["Critical (≥3×)", "High (2–3×)", "Medium (1.5–2×)", "Low (<1.5×)", "Unknown"]
+                sev_df["severity"] = pd.Categorical(sev_df["severity"], categories=order, ordered=True)
+                sev_df = sev_df.sort_values("severity")
+                fig_sev = px.bar(sev_df, x="severity", y="count", color="severity", text_auto=True)
+                fig_sev.update_layout(showlegend=False, xaxis_title=None, yaxis_title="# Alerts", margin=dict(t=10, b=10))
+                st.plotly_chart(fig_sev, use_container_width=True)
+
+            with col_b2:
+                st.markdown("#### Ratio distribution (recent MAE ÷ baseline MAE)")
+                fig_hist = px.histogram(
+                    alerts_df,
+                    x="threshold_ratio",
+                    nbins=30,
+                    color_discrete_sequence=["#ef4444"],
+                    labels={"threshold_ratio": "MAE ratio"},
+                )
+                fig_hist.add_vline(x=mae_thresh, line_dash="dash", line_color="#f97316", annotation_text="threshold")
+                fig_hist.update_layout(margin=dict(t=30, b=10))
+                st.plotly_chart(fig_hist, use_container_width=True)
+
+            st.markdown("---")
+
+            st.markdown("#### Drill-down (show only what matters)")
+            f1, f2, f3, f4 = st.columns([1, 1, 1, 1])
+            with f1:
+                method_pick = st.multiselect(
+                    "Method",
+                    options=sorted(alerts_df["method"].unique().tolist()),
+                    default=sorted(alerts_df["method"].unique().tolist()),
+                )
+            with f2:
+                severity_pick = st.multiselect(
+                    "Severity",
+                    options=[x for x in ["Critical (≥3×)", "High (2–3×)", "Medium (1.5–2×)", "Low (<1.5×)"] if x in alerts_df["severity"].unique()],
+                    default=[x for x in ["Critical (≥3×)", "High (2–3×)", "Medium (1.5–2×)"] if x in alerts_df["severity"].unique()],
+                )
+            with f3:
+                top_n = st.number_input("Show top N rows", min_value=10, max_value=200, value=50, step=10)
+            with f4:
+                min_ratio = st.number_input("Min ratio", min_value=1.0, max_value=10.0, value=float(mae_thresh), step=0.1)
+
+            filtered = alerts_df[
+                alerts_df["method"].isin(method_pick)
+                & alerts_df["severity"].isin(severity_pick if severity_pick else alerts_df["severity"].unique())
+                & (alerts_df["threshold_ratio"] >= float(min_ratio))
+            ].copy()
+
+            filtered = filtered.sort_values(["threshold_ratio", "recent_mae"], ascending=False)
+
             st.dataframe(
-                alerts_df[["store_id", "product_id", "method", "detected_at",
-                            "baseline_mae", "recent_mae", "threshold_ratio", "message"]],
+                filtered[[
+                    "store_id",
+                    "product_id",
+                    "method",
+                    "detected_at",
+                    "severity",
+                    "baseline_mae",
+                    "recent_mae",
+                    "threshold_ratio",
+                ]].head(int(top_n)),
                 use_container_width=True,
             )
+
+            # Always allow full download (no scrolling)
             csv_alerts = io.StringIO()
             alerts_df.to_csv(csv_alerts, index=False)
-            st.download_button("⬇ Download Alerts CSV", csv_alerts.getvalue(),
-                               file_name="drift_alerts.csv", mime="text/csv")
+            st.download_button(
+                "⬇ Download full alerts CSV",
+                csv_alerts.getvalue(),
+                file_name="drift_alerts.csv",
+                mime="text/csv",
+            )
+
         else:
-            st.success("✅ No drift detected with current thresholds.")
+            st.success("No drift detected with current thresholds.")
 
         st.markdown("---")
-        st.markdown("#### Monitoring Summary")
+        st.markdown("#### Monitoring Summary (Top by MAE)")
         st.dataframe(
             summary_df.sort_values("mae", ascending=False).head(20).reset_index(drop=True),
             use_container_width=True,
@@ -850,16 +1189,10 @@ with tab5:
 
     st.markdown("---")
     st.markdown("### Structured KPI Export")
-    st.markdown("Export all optimization and forecast KPIs to **Parquet** and **DuckDB** for BI dashboards.")
+    st.markdown("Export all optimization and forecast KPIs to **CSV** for BI dashboards.")
 
-    _scen5 = _all5.get("scenario", {})
-    _trans5 = _all5.get("transfers", {})
-    _mfg5 = _all5.get("manufacturing", {})
-
-    import tempfile, zipfile, os
-
-    if st.button("🚀 Generate Parquet + DuckDB Export", use_container_width=True):
-        with st.spinner("Building KPI schema and exporting…"):
+    if st.button("Generate CSV Export", use_container_width=True):
+        with st.spinner("Building KPI schema and exporting..."):
             with tempfile.TemporaryDirectory() as tmpdir:
                 try:
                     result = export_all_kpis(
@@ -869,23 +1202,19 @@ with tab5:
                         inventory_csv="optimization/output-csv/optimization_inventory.csv",
                         forecast_metrics_csv="demand-forecast/output/product_forecast_metrics.csv",
                         output_dir=tmpdir,
-                        formats=["parquet", "duckdb"],
+                        formats=["csv"],
                     )
                     # Zip all output files for download
                     zip_buf = io.BytesIO()
                     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                        parquet_dir = os.path.join(tmpdir, "parquet")
-                        if os.path.exists(parquet_dir):
-                            for fname in os.listdir(parquet_dir):
-                                zf.write(os.path.join(parquet_dir, fname),
-                                         arcname=f"parquet/{fname}")
-                        db_path = os.path.join(tmpdir, "supply_chain_kpis.duckdb")
-                        if os.path.exists(db_path):
-                            zf.write(db_path, arcname="supply_chain_kpis.duckdb")
+                        csv_dir = os.path.join(tmpdir, "csv")
+                        if os.path.exists(csv_dir):
+                            for fname in os.listdir(csv_dir):
+                                zf.write(os.path.join(csv_dir, fname), arcname=f"csv/{fname}")
                     zip_buf.seek(0)
-                    st.success("✅ Export ready!")
+                    st.success("Export ready!")
                     st.download_button(
-                        "⬇ Download KPI Export (Parquet + DuckDB)",
+                        "Download KPI Export (CSV)",
                         zip_buf.getvalue(),
                         file_name="supply_chain_kpis.zip",
                         mime="application/zip",
@@ -893,7 +1222,7 @@ with tab5:
                     # Preview DataFrames
                     st.markdown("**Schema Preview:**")
                     for name, df in result["dataframes"].items():
-                        with st.expander(f"📋 {name} ({len(df)} rows)"):
+                        with st.expander(f"{name} ({len(df)} rows)"):
                             st.dataframe(df.head(10), use_container_width=True)
                 except Exception as e:
                     st.error(f"Export failed: {e}")

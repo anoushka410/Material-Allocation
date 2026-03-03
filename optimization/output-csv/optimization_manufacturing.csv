@@ -172,6 +172,7 @@ store_id,product_id,qty,cost,reason_codes
 187,26,0.4,29.05,['high_delay_probability']
 60,223,1.84,134.59,['high_delay_probability']
 183,74,6.76,493.85,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
+187,691,3.03,221.24,['high_delay_probability']
 18,77,6.67,487.35,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 181,769,0.02,1.14,['high_delay_probability']
 118,829,3.06,223.81,['high_delay_probability']
@@ -378,7 +379,7 @@ store_id,product_id,qty,cost,reason_codes
 194,129,1.17,85.15,"['high_demand_variability', 'high_delay_probability']"
 134,600,0.87,63.37,['high_delay_probability']
 154,578,3.83,279.94,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
-147,691,23.85,1742.2,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
+147,691,20.82,1520.96,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 188,500,4.51,329.57,"['high_demand_variability', 'high_delay_probability']"
 154,596,6.24,455.63,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 187,117,10.44,762.93,['high_delay_probability']
@@ -457,6 +458,7 @@ store_id,product_id,qty,cost,reason_codes
 154,554,5.56,406.54,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 182,396,8.9,649.89,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 181,580,5.66,413.56,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
+187,740,3.03,221.32,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 183,370,3.77,275.15,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 1,631,3.8,277.32,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 183,379,12.93,944.62,"['manufacture_to_avoid_stockout', 'safety_stock_violation_prevented', 'high_delay_probability']"
@@ -717,7 +719,7 @@ store_id,product_id,qty,cost,reason_codes
 147,223,3.24,236.65,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 131,117,3.64,265.93,['high_delay_probability']
 196,363,3.5,256.01,['high_delay_probability']
-60,740,3.52,257.29,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
+60,740,0.49,35.97,"['manufacture_to_avoid_stockout', 'high_delay_probability']"
 74,486,2.11,154.34,['high_delay_probability']
 194,411,9.88,721.51,"['manufacture_to_avoid_stockout', 'safety_stock_violation_prevented', 'high_delay_probability']"
 29,600,6.61,482.77,"['manufacture_to_avoid_stockout', 'high_delay_probability']"

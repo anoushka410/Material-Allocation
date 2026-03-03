@@ -1,10 +1,8 @@
 """
-Structured KPI Export — Parquet and DuckDB.
+Structured KPI Export — CSV.
 
 Provides functions to build a normalised KPI schema from the project's
-optimization and forecast outputs, then persist them in:
-  - Apache Parquet  (for BI tools like Tableau, Power BI, Spark)
-  - DuckDB          (for in-process SQL analytics / real-time dashboards)
+optimization and forecast outputs, then persist them in CSV format.
 
 Schema
 ------
@@ -50,11 +48,13 @@ def build_kpi_transfers(transfers_json: dict) -> pd.DataFrame:
             "scenario", "from_store", "to_store", "product_id",
             "quantity", "transport_cost", "reason_codes",
         ])
-    scenario = transfers_json.get("scenario", "unknown")
+
     records = []
+    top_level_scenario = transfers_json.get("scenario", "unknown")
     for r in rows:
+        rec_scenario = r.get("scenario") or top_level_scenario
         records.append({
-            "scenario": scenario,
+            "scenario": rec_scenario,
             "from_store": r.get("from_store"),
             "to_store": r.get("to_store"),
             "product_id": r.get("product_id"),
@@ -73,11 +73,13 @@ def build_kpi_manufacturing(manufacturing_json: dict) -> pd.DataFrame:
             "scenario", "product_id", "manufacture_quantity",
             "manufacturing_cost", "reason_codes",
         ])
-    scenario = manufacturing_json.get("scenario", "unknown")
+
     records = []
+    top_level_scenario = manufacturing_json.get("scenario", "unknown")
     for r in rows:
+        rec_scenario = r.get("scenario") or top_level_scenario
         records.append({
-            "scenario": scenario,
+            "scenario": rec_scenario,
             "product_id": r.get("product_id"),
             "manufacture_quantity": r.get("manufacture_quantity", 0.0),
             "manufacturing_cost": r.get("cost_impact", {}).get("manufacturing_cost", 0.0),
@@ -110,67 +112,6 @@ def build_kpi_forecast_metrics(forecast_metrics_path: str | Path) -> pd.DataFram
     return df
 
 
-# ── Parquet export ────────────────────────────────────────────────────────────
-
-def export_to_parquet(
-    data: dict[str, pd.DataFrame],
-    output_dir: str | Path,
-) -> dict[str, Path]:
-    """
-    Export each DataFrame in `data` to a separate Parquet file.
-
-    Parameters
-    ----------
-    data       : mapping of table_name → DataFrame
-    output_dir : directory to write .parquet files
-
-    Returns
-    -------
-    dict of table_name → Path written
-    """
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written = {}
-    for name, df in data.items():
-        path = out_dir / f"{name}.parquet"
-        df.to_parquet(path, index=False, engine="pyarrow")
-        written[name] = path
-    return written
-
-
-# ── DuckDB export ─────────────────────────────────────────────────────────────
-
-def export_to_duckdb(
-    data: dict[str, pd.DataFrame],
-    db_path: str | Path,
-) -> Path:
-    """
-    Export each DataFrame in `data` to a DuckDB database table.
-
-    Parameters
-    ----------
-    data    : mapping of table_name → DataFrame
-    db_path : path to the .duckdb file (created if absent)
-
-    Returns
-    -------
-    Path to the DuckDB file
-    """
-    import duckdb  # optional dependency; fail loudly if missing
-
-    db_path = Path(db_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(db_path))
-    try:
-        for name, df in data.items():
-            # Replace existing table
-            con.execute(f"DROP TABLE IF EXISTS {name}")
-            con.execute(f"CREATE TABLE {name} AS SELECT * FROM df")
-    finally:
-        con.close()
-    return db_path
-
-
 # ── All-in-one helper ─────────────────────────────────────────────────────────
 
 def export_all_kpis(
@@ -183,18 +124,18 @@ def export_all_kpis(
     formats: list[str] | None = None,
 ) -> dict[str, Any]:
     """
-    Build all KPI DataFrames and export to requested formats.
+    Build all KPI DataFrames and export to CSV format.
 
     Parameters
     ----------
-    formats : list of 'parquet', 'duckdb' (default: both)
+    formats : list of 'csv' (default: ['csv'])
 
     Returns
     -------
-    dict with keys 'dataframes', 'parquet_files', 'duckdb_path'
+    dict with keys 'dataframes', 'csv_files'
     """
     if formats is None:
-        formats = ["parquet", "duckdb"]
+        formats = ["csv"]
 
     frames = {
         "kpi_scenario": build_kpi_scenario(scenario_json),
@@ -207,10 +148,16 @@ def export_all_kpis(
     result: dict[str, Any] = {"dataframes": frames}
 
     out_dir = Path(output_dir)
-    if "parquet" in formats:
-        result["parquet_files"] = export_to_parquet(frames, out_dir / "parquet")
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    if "duckdb" in formats:
-        result["duckdb_path"] = export_to_duckdb(frames, out_dir / "supply_chain_kpis.duckdb")
+    if "csv" in formats:
+        csv_dir = out_dir / "csv"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_files = {}
+        for name, df in frames.items():
+            path = csv_dir / f"{name}.csv"
+            df.to_csv(path, index=False)
+            csv_files[name] = path
+        result["csv_files"] = csv_files
 
     return result

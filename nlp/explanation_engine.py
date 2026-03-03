@@ -1,19 +1,31 @@
 def explain_transfer(data: dict, params: dict = None) -> str:
     transfer_data = data.get("transfers", {})
-    scenario = transfer_data.get("scenario", "Unknown")
     transfers = transfer_data.get("transfers", [])
-    
+
+    # If flat file is loaded, each transfer may carry its own scenario.
+    selected_scenario = None
+    if params and isinstance(params, dict):
+        selected_scenario = params.get("scenario")
+    if not selected_scenario:
+        selected_scenario = transfer_data.get("scenario")
+
+    # Filter by scenario if the user specified one and the records include scenario
+    if selected_scenario and selected_scenario not in ("all", "optimization_run", "unknown"):
+        transfers = [t for t in transfers if str(t.get("scenario")) == str(selected_scenario)]
+
+    scenario_label = selected_scenario or transfer_data.get("scenario") or "Unknown"
+
     if params:
         filtered = []
         p_prod = [x.lower() for x in params.get("product_id", [])]
         p_store = [x.lower() for x in params.get("store_id", [])]
-        
+
         if p_prod or p_store:
             for t in transfers:
-                product = t.get("product_id", "").lower()
-                from_s = t.get("from_store", "").lower()
-                to_s = t.get("to_store", "").lower()
-                
+                product = str(t.get("product_id", "")).lower()
+                from_s = str(t.get("from_store", "")).lower()
+                to_s = str(t.get("to_store", "")).lower()
+
                 if (p_prod and product in p_prod) or \
                    (p_store and (from_s in p_store or to_s in p_store)):
                     filtered.append(t)
@@ -23,7 +35,7 @@ def explain_transfer(data: dict, params: dict = None) -> str:
         return "No transfers match the given specific product or store in this scenario."
 
     lines = [
-        f"**Scenario:** {scenario}  ",
+        f"**Scenario:** {scenario_label}  ",
         f"**Transfer Recommendations:** {len(transfers)}",
         "",
     ]
@@ -35,12 +47,19 @@ def explain_transfer(data: dict, params: dict = None) -> str:
         qty = t.get("quantity", 0)
         reasons = t.get("reason_codes", [])
         ci = t.get("cost_impact", {})
+        t_scen = t.get("scenario")
 
         reason_text = ", ".join(r.replace("_", " ").title() for r in reasons)
 
-        lines.append(f"**Transfer {idx}: Product {product}**  ")
+        title = f"**Transfer {idx}: Product {product}**"
+        if t_scen and scenario_label in ("all", "Unknown", "unknown"):
+            title += f" *(Scenario: {t_scen})*"
+        lines.append(title + "  ")
         lines.append(f"Route: Store {from_s} → Store {to_s}  ")
-        lines.append(f"Quantity: **{qty:.2f} units**  ")
+        try:
+            lines.append(f"Quantity: **{float(qty):.2f} units**  ")
+        except Exception:
+            lines.append(f"Quantity: **{qty} units**  ")
         lines.append(f"Reasons: {reason_text}  ")
         lines.append(f"Transport Cost: ${ci.get('transport_cost', 0):,.2f}  ")
         lines.append("")
@@ -50,26 +69,36 @@ def explain_transfer(data: dict, params: dict = None) -> str:
 
 def explain_manufacturing(data: dict, params: dict = None) -> str:
     mfg_data = data.get("manufacturing", {})
-    scenario = mfg_data.get("scenario", "Unknown")
     actions = mfg_data.get("manufacturing_actions", [])
-    
+
+    selected_scenario = None
+    if params and isinstance(params, dict):
+        selected_scenario = params.get("scenario")
+    if not selected_scenario:
+        selected_scenario = mfg_data.get("scenario")
+
+    if selected_scenario and selected_scenario not in ("all", "optimization_run", "unknown"):
+        actions = [m for m in actions if str(m.get("scenario")) == str(selected_scenario)]
+
+    scenario_label = selected_scenario or mfg_data.get("scenario") or "Unknown"
+
     if params:
         filtered = []
         p_prod = [x.lower() for x in params.get("product_id", [])]
-        
+
         if p_prod:
             for m in actions:
-                product = m.get("product_id", "").lower()
-                
+                product = str(m.get("product_id", "")).lower()
+
                 if product in p_prod:
                     filtered.append(m)
             actions = filtered
-            
+
     if not actions:
         return "No manufacturing actions match the given specific product in this scenario."
 
     lines = [
-        f"**Scenario:** {scenario}  ",
+        f"**Scenario:** {scenario_label}  ",
         f"**Manufacturing Decisions:** {len(actions)}",
         "",
     ]
@@ -79,11 +108,17 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
         qty = m.get("manufacture_quantity", 0)
         reasons = m.get("reason_codes", [])
         ci = m.get("cost_impact", {})
+        m_scen = m.get("scenario")
 
+        title = f"**Decision {idx}: Product {product}**"
+        if m_scen and scenario_label in ("all", "Unknown", "unknown"):
+            title += f" *(Scenario: {m_scen})*"
+        lines.append(title + "  ")
+        try:
+            lines.append(f"Quantity to Manufacture: **{float(qty):.2f} units**  ")
+        except Exception:
+            lines.append(f"Quantity to Manufacture: **{qty} units**  ")
         reason_text = ", ".join(r.replace("_", " ").title() for r in reasons)
-
-        lines.append(f"**Decision {idx}: Product {product}**  ")
-        lines.append(f"Quantity to Manufacture: **{qty:.2f} units**  ")
         lines.append(f"Reasons: {reason_text}  ")
         lines.append(f"Manufacturing Cost: ${ci.get('manufacturing_cost', 0):,.2f}  ")
         lines.append("")
@@ -93,6 +128,27 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
 
 def explain_scenario(data: dict) -> str:
     scen_data = data.get("scenario", {})
+
+    # Support both formats:
+    # 1) single scenario summary: {scenario, optimized, cost_breakdown}
+    # 2) combined summary: {scenario:"all", scenarios:{<id>:{...}}}
+    if scen_data.get("scenario") == "all" and isinstance(scen_data.get("scenarios"), dict):
+        scenarios = scen_data.get("scenarios") or {}
+        lines = [
+            "**Scenario Summary (All Scenarios)**",
+            "",
+            f"Total scenarios: **{len(scenarios)}**",
+            "",
+            "| Scenario | Total Cost | Transfers | Mfg Units | Transfer Units |",
+            "|---------|------------:|----------:|----------:|---------------:|",
+        ]
+        for sid, sj in scenarios.items():
+            opt = (sj or {}).get("optimized", {})
+            lines.append(
+                f"| {sid} | ${opt.get('total_cost', 0):,.2f} | {opt.get('total_transfers', 0)} | {opt.get('manufacturing_units', 0):,.1f} | {opt.get('transfer_units', 0):,.1f} |"
+            )
+        return "\n".join(lines)
+
     scenario = scen_data.get("scenario", "Unknown")
     optimized = scen_data.get("optimized", {})
     cost_breakdown = scen_data.get("cost_breakdown", {})

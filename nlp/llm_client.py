@@ -10,8 +10,13 @@ def call_llm(messages: list[dict]) -> str:
         "model": MODEL,
         "messages": messages,
         "stream": False,
-        "options": {"temperature": 0.2},
+        # Force deterministic output to reduce hallucination risk
+        "options": {"temperature": 0.0},
     }
     response = requests.post(OLLAMA_URL, json=payload, timeout=TIMEOUT)
     response.raise_for_status()
-    return response.json()["message"]["content"].strip()
+    data = response.json()
+    # Defensive checks — return an explicit placeholder if the response is malformed or empty
+    if not data or "message" not in data or "content" not in data["message"]:
+        return ""
+    return data["message"]["content"].strip()

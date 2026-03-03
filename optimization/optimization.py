@@ -226,7 +226,7 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
         key_fields=["scenario", "from_store", "to_store", "product_id"],
     )
 
-    transfers_path.write_text(json.dumps({"scenario": "all", "transfers": merged_transfers}, indent=2))
+    transfers_path.write_text(json.dumps({"transfers": merged_transfers}, indent=2))
 
     # --- Manufacturing (append; each record includes scenario) ---
     mfg_path = out_dir / "manufacturing_decisions.json"
@@ -264,7 +264,7 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
         key_fields=["scenario", "product_id"],
     )
 
-    mfg_path.write_text(json.dumps({"scenario": "all", "manufacturing_actions": merged_mfg}, indent=2))
+    mfg_path.write_text(json.dumps({"manufacturing_actions": merged_mfg}, indent=2))
 
     # --- Scenario summary (combined; keyed by scenario_id) ---
     summary_path = out_dir / "scenario_summary.json"
@@ -296,7 +296,7 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
 
     scenario_ids = sorted(scenarios_dict.keys())
     summary_path.write_text(
-        json.dumps({"scenario": "all", "scenarios": scenarios_dict, "scenario_ids": scenario_ids}, indent=2)
+        json.dumps({"scenarios": scenarios_dict, "scenario_ids": scenario_ids}, indent=2)
     )
 
     print(f"JSON outputs updated under {output_dir}/ (flat 3-file schema). Added scenario_id='{scenario_id}'")

@@ -131,19 +131,22 @@ def explain_scenario(data: dict) -> str:
 
     # Support both formats:
     # 1) single scenario summary: {scenario, optimized, cost_breakdown}
-    # 2) combined summary: {scenario:"all", scenarios:{<id>:{...}}}
-    if scen_data.get("scenario") == "all" and isinstance(scen_data.get("scenarios"), dict):
-        scenarios = scen_data.get("scenarios") or {}
+    # 2) combined summary: {summaries:[{scenario, optimized, cost_breakdown}, ...]}
+
+    # Check if we received the full scenario_summary.json structure
+    if "summaries" in scen_data:
+        summaries = scen_data.get("summaries", [])
         lines = [
             "**Scenario Summary (All Scenarios)**",
             "",
-            f"Total scenarios: **{len(scenarios)}**",
+            f"Total scenarios: **{len(summaries)}**",
             "",
             "| Scenario | Total Cost | Transfers | Mfg Units | Transfer Units |",
             "|---------|------------:|----------:|----------:|---------------:|",
         ]
-        for sid, sj in scenarios.items():
-            opt = (sj or {}).get("optimized", {})
+        for summary in summaries:
+            sid = summary.get("scenario", "Unknown")
+            opt = summary.get("optimized", {})
             lines.append(
                 f"| {sid} | ${opt.get('total_cost', 0):,.2f} | {opt.get('total_transfers', 0)} | {opt.get('manufacturing_units', 0):,.1f} | {opt.get('transfer_units', 0):,.1f} |"
             )
@@ -222,11 +225,12 @@ def explain_counts(data: dict) -> str:
     manufacturing = data.get("manufacturing", {}).get("manufacturing_actions", [])
     scen_data = data.get("scenario", {})
     optimized = scen_data.get("optimized", {})
+    cost_breakdown = scen_data.get("cost_breakdown", {})
 
     products_t = set(t["product_id"] for t in transfers if "product_id" in t)
     products_m = set(m["product_id"] for m in manufacturing if "product_id" in m)
     total_products = len(products_t | products_m)
-    
+
     stores = set()
     for t in transfers:
         if "from_store" in t:
@@ -236,6 +240,14 @@ def explain_counts(data: dict) -> str:
 
     total_transfer_quantity = sum(t.get("quantity", 0) for t in transfers)
     total_mfg_quantity = sum(m.get("manufacture_quantity", 0) for m in manufacturing)
+
+    total_cost = float(optimized.get("total_cost", 0) or 0)
+    if total_cost == 0 and isinstance(cost_breakdown, dict):
+        total_cost = float(
+            (cost_breakdown.get("manufacturing_cost", 0) or 0)
+            + (cost_breakdown.get("transfer_cost", 0) or 0)
+            + (cost_breakdown.get("holding_cost", 0) or 0)
+        )
 
     lines = [
         f"**Scenario:** {scenario}",
@@ -250,7 +262,7 @@ def explain_counts(data: dict) -> str:
         f"| Stores Involved | {len(stores)} |",
         f"| Total Transfer Quantity | {total_transfer_quantity:.2f} units |",
         f"| Total Manufacturing Quantity | {total_mfg_quantity:.2f} units |",
-        f"| Total Optimization Cost | ${optimized.get('total_cost', 0):,.2f} |",
+        f"| Total Optimization Cost | ${total_cost:,.2f} |",
     ]
     return "\n".join(lines)
 

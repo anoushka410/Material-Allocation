@@ -266,20 +266,18 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
 
     mfg_path.write_text(json.dumps({"manufacturing_actions": merged_mfg}, indent=2))
 
-    # --- Scenario summary (combined; keyed by scenario_id) ---
+    # --- Scenario summary (combined; array format) ---
     summary_path = out_dir / "scenario_summary.json"
-    existing_summary: dict = {}
+    existing_summaries: list = []
     if summary_path.exists():
         try:
-            existing_summary = json.loads(summary_path.read_text())
+            existing_data = json.loads(summary_path.read_text())
+            existing_summaries = existing_data.get("summaries", [])
         except Exception:
-            existing_summary = {}
+            existing_summaries = []
 
-    scenarios_dict = existing_summary.get("scenarios") if isinstance(existing_summary, dict) else None
-    if not isinstance(scenarios_dict, dict):
-        scenarios_dict = {}
-
-    scenarios_dict[scenario_id] = {
+    # Create new scenario summary entry
+    new_summary = {
         "scenario": scenario_id,
         "optimized": {
             "total_cost": round(costs['total'], 2),
@@ -294,9 +292,22 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
         },
     }
 
-    scenario_ids = sorted(scenarios_dict.keys())
+    # Update or append to summaries array
+    updated = False
+    for i, summary in enumerate(existing_summaries):
+        if summary.get("scenario") == scenario_id:
+            existing_summaries[i] = new_summary
+            updated = True
+            break
+
+    if not updated:
+        existing_summaries.append(new_summary)
+
+    # Extract scenario IDs and sort
+    scenario_ids = sorted([s["scenario"] for s in existing_summaries])
+
     summary_path.write_text(
-        json.dumps({"scenarios": scenarios_dict, "scenario_ids": scenario_ids}, indent=2)
+        json.dumps({"summaries": existing_summaries, "scenario_ids": scenario_ids}, indent=2)
     )
 
     print(f"JSON outputs updated under {output_dir}/ (flat 3-file schema). Added scenario_id='{scenario_id}'")

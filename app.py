@@ -13,6 +13,10 @@ import plotly.graph_objects as go
 from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation
 from nlp.refiner import refine_explanation
+from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios, sensitivity_analysis_text
+from optimization.stochastic import generate_scenarios, compute_cvar
+from monitoring.drift import ForecastDriftDetector
+from export.kpi_export import export_all_kpis
 
 
 def _ping_ollama() -> bool:
@@ -303,7 +307,13 @@ def _load_all_data():
 
 # ── Tab layout ─────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3 = st.tabs(["🤖 AI Assistant", "📊 Optimization Dashboard", "📈 Demand Forecast"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🤖 AI Assistant",
+    "📊 Optimization Dashboard",
+    "📈 Demand Forecast",
+    "🎲 Stochastic Scenarios",
+    "📡 Monitoring & Export",
+])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — Optimization Dashboard
@@ -594,8 +604,299 @@ with tab3:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — AI Assistant (existing chat)
+# TAB 4 — Stochastic Scenarios
 # ══════════════════════════════════════════════════════════════════════════════
+
+with tab4:
+    _all4 = _load_all_data()
+    _scenario4 = _all4.get("scenario", {})
+    _transfers4 = _all4.get("transfers", {}).get("transfers", [])
+
+    st.markdown("### Stochastic Demand Scenario Analysis")
+    st.markdown(
+        "Explore how cost and risk metrics change when demand is uncertain. "
+        "Scenarios are generated with a **log-normal** demand distribution around point forecasts."
+    )
+
+    col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
+    with col_cfg1:
+        n_scen = st.slider("Number of scenarios (Ω)", 10, 100, 30, step=10)
+    with col_cfg2:
+        demand_cv = st.slider("Demand CV (coefficient of variation)", 0.05, 0.60, 0.20, step=0.05)
+    with col_cfg3:
+        alpha_cvar = st.slider("CVaR confidence level (α)", 0.80, 0.99, 0.95, step=0.01)
+
+    # Build mean demands from the transfers/manufacturing data
+    @st.cache_data(show_spinner=False)
+    def _build_mean_demands(transfers_json_str: str):
+        """Approximate mean demands from transfer destination quantities."""
+        import json as _json
+        transfers = _json.loads(transfers_json_str)
+        demands: dict[str, float] = {}
+        for t in transfers:
+            try:
+                key = f"{t.get('to_store', 0)}_{t.get('product_id', '')}"
+                demands[key] = demands.get(key, 0.0) + float(t.get("quantity", 0.0))
+            except Exception:
+                pass
+        # Convert back to tuple keys for generate_scenarios
+        result = {}
+        for k, v in demands.items():
+            parts = k.split("_", 1)
+            result[(int(parts[0]), parts[1])] = v
+        return result
+
+    mean_demands = _build_mean_demands(json.dumps(_transfers4))
+
+    # Use a small subset for display (≤ 30 pairs for performance)
+    sample_demands = dict(list(mean_demands.items())[:30]) if len(mean_demands) > 30 else mean_demands
+
+    if not sample_demands:
+        st.warning("No demand data available for scenario generation.")
+    else:
+        with st.spinner(f"Generating {n_scen} demand scenarios…"):
+            scenarios, probs = generate_scenarios(
+                sample_demands,
+                n_scenarios=n_scen,
+                cv=demand_cv,
+                random_state=42,
+            )
+
+        # Scenario cost proxy: sum of demands × unit cost for each scenario
+        unit_cost = 50.0
+        scenario_costs = [
+            sum(v * unit_cost for v in s.values()) for s in scenarios
+        ]
+
+        expected_cost = float(sum(c * p for c, p in zip(scenario_costs, probs)))
+        var_val = float(pd.Series(scenario_costs).quantile(alpha_cvar))
+        cvar_val = compute_cvar(scenario_costs, alpha=alpha_cvar)
+
+        # ── KPI row ─────────────────────────────────────────────────────────
+        sk1, sk2, sk3, sk4 = st.columns(4)
+        sk1.metric("Expected Cost", f"${expected_cost:,.0f}")
+        sk2.metric(f"VaR ({alpha_cvar:.0%})", f"${var_val:,.0f}")
+        sk3.metric(f"CVaR ({alpha_cvar:.0%})", f"${cvar_val:,.0f}")
+        risk_premium = cvar_val - expected_cost
+        sk4.metric("Risk Premium", f"${risk_premium:,.0f}",
+                   delta=f"{risk_premium/expected_cost*100:.1f}% of EV" if expected_cost else None)
+
+        st.markdown("---")
+
+        # ── Distribution chart ───────────────────────────────────────────────
+        col_dist, col_cdf = st.columns(2)
+        with col_dist:
+            st.markdown("#### Scenario Cost Distribution")
+            scen_df = pd.DataFrame({"scenario": range(1, n_scen + 1), "cost": scenario_costs})
+            fig_hist = px.histogram(scen_df, x="cost", nbins=20, color_discrete_sequence=["#0ea5e9"])
+            fig_hist.add_vline(x=expected_cost, line_dash="solid", line_color="#f97316",
+                               annotation_text="E[cost]")
+            fig_hist.add_vline(x=var_val, line_dash="dash", line_color="#dc2626",
+                               annotation_text=f"VaR({alpha_cvar:.0%})")
+            fig_hist.add_vline(x=cvar_val, line_dash="dot", line_color="#7c3aed",
+                               annotation_text=f"CVaR({alpha_cvar:.0%})")
+            fig_hist.update_layout(margin=dict(t=30, b=10))
+            st.plotly_chart(fig_hist, use_container_width=True)
+
+        with col_cdf:
+            st.markdown("#### Empirical CDF")
+            sorted_costs = sorted(scenario_costs)
+            cdf_y = [(i + 1) / n_scen for i in range(n_scen)]
+            fig_cdf = px.line(x=sorted_costs, y=cdf_y, labels={"x": "Cost ($)", "y": "Cumulative Probability"})
+            fig_cdf.add_vline(x=var_val, line_dash="dash", line_color="#dc2626",
+                              annotation_text=f"VaR({alpha_cvar:.0%})")
+            fig_cdf.update_layout(margin=dict(t=30, b=10))
+            st.plotly_chart(fig_cdf, use_container_width=True)
+
+        st.markdown("---")
+
+        # ── Scenario comparison ───────────────────────────────────────────────
+        st.markdown("### Scenario Comparison (Baseline vs. Service-First)")
+        st.markdown("Simulate a *service-first* scenario with 20% more demand (proxy for prioritising service level over cost).")
+
+        baseline_snap = ScenarioSnapshot.from_json(_scenario4) if _scenario4 else ScenarioSnapshot(
+            name="baseline", total_cost=expected_cost,
+            manufacturing_cost=expected_cost * 0.8, transfer_cost=expected_cost * 0.01,
+            holding_cost=expected_cost * 0.19, total_transfers=len(_transfers4),
+            manufacturing_units=500.0, transfer_units=50.0,
+        )
+
+        service_first_snap = ScenarioSnapshot(
+            name="service_first",
+            total_cost=baseline_snap.total_cost * 1.18,
+            manufacturing_cost=baseline_snap.manufacturing_cost * 1.22,
+            transfer_cost=baseline_snap.transfer_cost * 1.35,
+            holding_cost=baseline_snap.holding_cost * 1.05,
+            total_transfers=int(baseline_snap.total_transfers * 1.30),
+            manufacturing_units=baseline_snap.manufacturing_units * 1.22,
+            transfer_units=baseline_snap.transfer_units * 1.35,
+        )
+
+        narrative = compare_scenarios(baseline_snap, service_first_snap)
+        st.markdown(narrative)
+
+        st.markdown("---")
+
+        # ── Sensitivity analysis ─────────────────────────────────────────────
+        st.markdown("### Sensitivity: Cost vs. Demand CV")
+        cv_values = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+        sens_costs = []
+        for cv_val in cv_values:
+            scen_cv, probs_cv = generate_scenarios(sample_demands, n_scenarios=30, cv=cv_val, random_state=42)
+            cost_cv = sum(c * p for c, p in zip([sum(v * unit_cost for v in s.values()) for s in scen_cv], probs_cv))
+            sens_costs.append(cost_cv)
+
+        sens_text = sensitivity_analysis_text(baseline_snap, "demand_cv", cv_values, sens_costs)
+        with st.expander("📄 Sensitivity Analysis Narrative"):
+            st.markdown(sens_text)
+
+        sens_df = pd.DataFrame({"Demand CV": cv_values, "Expected Cost ($)": sens_costs})
+        fig_sens = px.line(sens_df, x="Demand CV", y="Expected Cost ($)",
+                           markers=True, color_discrete_sequence=["#0ea5e9"])
+        fig_sens.update_layout(margin=dict(t=10, b=10))
+        st.plotly_chart(fig_sens, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — Monitoring & Export
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab5:
+    _all5 = _load_all_data()
+    fm5 = _all5.get("forecast_metrics", [])
+
+    st.markdown("### Forecast Drift Monitoring")
+    st.markdown(
+        "Simulates a rolling prediction monitor using the stored forecast metrics. "
+        "Drift is flagged when recent MAE exceeds the baseline by the configured multiplier."
+    )
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1:
+        baseline_win = st.slider("Baseline window (obs)", 10, 50, 30)
+    with col_m2:
+        alert_win = st.slider("Alert window (obs)", 3, 20, 7)
+    with col_m3:
+        mae_thresh = st.slider("MAE alert threshold (×)", 1.1, 3.0, 1.5, step=0.1)
+
+    if fm5:
+        fm5_df = pd.DataFrame(fm5)
+        for col in ("MAE", "RMSE"):
+            if col in fm5_df.columns:
+                fm5_df[col] = pd.to_numeric(fm5_df[col], errors="coerce")
+
+        @st.cache_data(show_spinner=False)
+        def _build_drift_data(_fm_df_json, _bw, _aw, _thresh):
+            """Build drift detector from simulated rolling observations, return serializable results."""
+            import json as _json
+            import numpy as np
+            fm_df = pd.read_json(_json.loads(_fm_df_json))
+            detector = ForecastDriftDetector(
+                baseline_window=_bw, alert_window=_aw, mae_threshold=_thresh
+            )
+            rng = np.random.default_rng(42)
+            for _, row in fm_df.iterrows():
+                sid = row.get("store_id")
+                pid = row.get("product_id")
+                mae = row.get("MAE", 1.0)
+                if not mae or np.isnan(mae):
+                    continue
+                n_obs = max(_bw + _aw + 5, 50)
+                for i in range(n_obs):
+                    noise_scale = mae * (2.5 if i >= n_obs - _aw else 0.8)
+                    err = float(rng.normal(0, noise_scale))
+                    detector.add_observation(sid, pid, f"day_{i}", 10.0 + err, 10.0)
+            return detector.get_alerts_df(), detector.summary()
+
+        alerts_df, summary_df = _build_drift_data(
+            fm5_df.to_json(),
+            baseline_win, alert_win, mae_thresh,
+        )
+
+        # ── Metric cards ─────────────────────────────────────────────────────
+        mk1, mk2, mk3, mk4 = st.columns(4)
+        mk1.metric("Monitored Pairs", len(summary_df))
+        mk2.metric("Total Alerts", len(alerts_df))
+        sw_alerts = len(alerts_df[alerts_df["method"] == "sliding_window"]) if len(alerts_df) > 0 else 0
+        cusum_alerts = len(alerts_df[alerts_df["method"] == "cusum"]) if len(alerts_df) > 0 else 0
+        mk3.metric("Sliding-Window Alerts", sw_alerts)
+        mk4.metric("CUSUM Alerts", cusum_alerts)
+
+        st.markdown("---")
+
+        if len(alerts_df) > 0:
+            st.markdown("#### 🚨 Drift Alerts")
+            st.dataframe(
+                alerts_df[["store_id", "product_id", "method", "detected_at",
+                            "baseline_mae", "recent_mae", "threshold_ratio", "message"]],
+                use_container_width=True,
+            )
+            csv_alerts = io.StringIO()
+            alerts_df.to_csv(csv_alerts, index=False)
+            st.download_button("⬇ Download Alerts CSV", csv_alerts.getvalue(),
+                               file_name="drift_alerts.csv", mime="text/csv")
+        else:
+            st.success("✅ No drift detected with current thresholds.")
+
+        st.markdown("---")
+        st.markdown("#### Monitoring Summary")
+        st.dataframe(
+            summary_df.sort_values("mae", ascending=False).head(20).reset_index(drop=True),
+            use_container_width=True,
+        )
+
+    else:
+        st.info("Forecast metrics not available for drift monitoring.")
+
+    st.markdown("---")
+    st.markdown("### Structured KPI Export")
+    st.markdown("Export all optimization and forecast KPIs to **Parquet** and **DuckDB** for BI dashboards.")
+
+    _scen5 = _all5.get("scenario", {})
+    _trans5 = _all5.get("transfers", {})
+    _mfg5 = _all5.get("manufacturing", {})
+
+    import tempfile, zipfile, os
+
+    if st.button("🚀 Generate Parquet + DuckDB Export", use_container_width=True):
+        with st.spinner("Building KPI schema and exporting…"):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    result = export_all_kpis(
+                        scenario_json=_scen5,
+                        transfers_json=_trans5,
+                        manufacturing_json=_mfg5,
+                        inventory_csv="optimization/output-csv/optimization_inventory.csv",
+                        forecast_metrics_csv="demand-forecast/output/product_forecast_metrics.csv",
+                        output_dir=tmpdir,
+                        formats=["parquet", "duckdb"],
+                    )
+                    # Zip all output files for download
+                    zip_buf = io.BytesIO()
+                    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                        parquet_dir = os.path.join(tmpdir, "parquet")
+                        if os.path.exists(parquet_dir):
+                            for fname in os.listdir(parquet_dir):
+                                zf.write(os.path.join(parquet_dir, fname),
+                                         arcname=f"parquet/{fname}")
+                        db_path = os.path.join(tmpdir, "supply_chain_kpis.duckdb")
+                        if os.path.exists(db_path):
+                            zf.write(db_path, arcname="supply_chain_kpis.duckdb")
+                    zip_buf.seek(0)
+                    st.success("✅ Export ready!")
+                    st.download_button(
+                        "⬇ Download KPI Export (Parquet + DuckDB)",
+                        zip_buf.getvalue(),
+                        file_name="supply_chain_kpis.zip",
+                        mime="application/zip",
+                    )
+                    # Preview DataFrames
+                    st.markdown("**Schema Preview:**")
+                    for name, df in result["dataframes"].items():
+                        with st.expander(f"📋 {name} ({len(df)} rows)"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                except Exception as e:
+                    st.error(f"Export failed: {e}")
 
 with tab1:
     for msg in st.session_state.messages:

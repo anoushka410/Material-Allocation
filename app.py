@@ -1,3 +1,4 @@
+import io
 import json
 import subprocess
 import time
@@ -5,6 +6,9 @@ import requests
 import streamlit as st
 import csv
 import ast
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 
 from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation
@@ -272,274 +276,596 @@ with st.sidebar:
 AVATAR_USER = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#334155" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">U</text></svg>'''
 AVATAR_AI = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0ea5e9" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">AI</text></svg>'''
 
-for msg in st.session_state.messages:
-    avatar_val = AVATAR_USER if msg["role"] == "user" else AVATAR_AI
-    with st.chat_message(msg["role"], avatar=avatar_val):
-        st.markdown(msg["content"], unsafe_allow_html=True)
+# ── Helper: load data once per session ────────────────────────────────────────
 
-if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar=AVATAR_USER):
-        st.markdown(prompt)
+@st.cache_data(show_spinner=False)
+def _load_all_data():
+    """Load all optimization and forecast data into a single dict."""
+    d = {}
+    try:
+        d["scenario"] = load_json(f"{SAMPLE_DATA_DIR}/scenario_summary.json")
+    except Exception:
+        d["scenario"] = {}
+    try:
+        d["transfers"] = load_json(f"{SAMPLE_DATA_DIR}/transfer_recommendations.json")
+    except Exception:
+        d["transfers"] = {}
+    try:
+        d["manufacturing"] = load_json(f"{SAMPLE_DATA_DIR}/manufacturing_decisions.json")
+    except Exception:
+        d["manufacturing"] = {}
+    d["inventory"] = load_csv("optimization/output-csv/optimization_inventory.csv")
+    d["opt_transfers"] = load_csv("optimization/output-csv/optimization_transfers.csv")
+    d["opt_manufacturing"] = load_csv("optimization/output-csv/optimization_manufacturing.csv")
+    d["forecast_metrics"] = load_csv("demand-forecast/output/product_forecast_metrics.csv")
+    return d
 
-    with st.chat_message("assistant", avatar=AVATAR_AI):
-        with st.spinner("Classifying intent…"):
-            intent = classify_intent(prompt)
 
-        params = extract_parameters(prompt)
+# ── Tab layout ─────────────────────────────────────────────────────────────────
 
-        # Contextual fallback for follow-up questions
-        if intent == "out_of_scope" and st.session_state.last_intent:
-            has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
-            if params["is_all"] or has_specifics:
-                intent = st.session_state.last_intent
+tab1, tab2, tab3 = st.tabs(["🤖 AI Assistant", "📊 Optimization Dashboard", "📈 Demand Forecast"])
 
-        if intent not in ("out_of_scope", "greeting"):
-            st.session_state.last_intent = intent
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — Optimization Dashboard
+# ══════════════════════════════════════════════════════════════════════════════
 
-        label = INTENT_LABELS.get(intent, intent)
+with tab2:
+    _all = _load_all_data()
+    scenario_data = _all.get("scenario", {})
+    optimized = scenario_data.get("optimized", {})
+    cost_breakdown = scenario_data.get("cost_breakdown", {})
+    transfers_list = _all.get("transfers", {}).get("transfers", [])
+    mfg_list = _all.get("manufacturing", {}).get("manufacturing_actions", [])
+    inv_list = _all.get("inventory", [])
+    opt_transfers = _all.get("opt_transfers", [])
+    opt_manufacturing = _all.get("opt_manufacturing", [])
 
-        if intent == "greeting":
-            response = (
-                "Hello. I am the Supply Chain Analytics Assistant.\n\n"
-                "I can help you analyze optimization recommendations across multiple dimensions:\n\n"
-                "**Overview & Summaries:**\n"
-                "- *\"Provide a scenario summary\"* - Overall optimization results\n"
-                "- *\"Show cost breakdown\"* - Detailed cost composition\n"
-                "- *\"How many recommendations total\"* - Summary counts\n\n"
-                "**Transfer Analysis:**\n"
-                "- *\"Explain transfer recommendations\"* - Detailed transfer details\n"
-                "- *\"Top transfers by cost\"* - Prioritized high-cost transfers\n"
-                "- *\"Urgent transfers\"* - Transfers for stockout prevention\n"
-                "- *\"Store activity\"* - Store involvement in transfers\n\n"
-                "**Manufacturing Analysis:**\n"
-                "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
-                "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
-                "**Decision Insights:**\n"
-                "- *\"Why these decisions\"* - Analysis of decision reasons\n"
-                "- *\"High-cost actions\"* - Most expensive recommendations\n"
-                "- *\"Product specific details\"* - Product-level recommendations\n\n"
-                "Please enter your query below to get started."
-            )
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-        elif intent == "out_of_scope":
-            response = (
-                "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
-                "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
-                "Please rephrase your request. For example:\n"
-                "- *\"Why was inventory transferred between facilities?\"*\n"
-                "- *\"What manufacturing actions were recommended?\"*\n"
-                "- *\"Compare the optimized scenario against the baseline.\"*"
-            )
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-        else:
-            has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+    st.markdown("### Optimization Overview")
 
-            badge_html = f'<span class="intent-badge">{label}</span>'
-            if has_specifics:
-                badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
-            st.markdown(badge_html, unsafe_allow_html=True)
-            data = {
-                "scenario": load_json(f"{SAMPLE_DATA_DIR}/scenario_summary.json"),
-                "transfers": load_json(f"{SAMPLE_DATA_DIR}/transfer_recommendations.json"),
-                "manufacturing": load_json(f"{SAMPLE_DATA_DIR}/manufacturing_decisions.json"),
-                # Additional contextual sources (optimization CSVs and demand-forecast outputs)
-                "optimization_summary": None,
-                "inventory": [],
-                "optimization_transfers_csv": [],
-                "optimization_manufacturing_csv": [],
-                "forecast_metrics": [],
-                "product_forecasts": [],
+    # ── KPI Metric Row ─────────────────────────────────────────────────────────
+    total_cost = optimized.get("total_cost", 0)
+    mfg_cost = cost_breakdown.get("manufacturing_cost", 0)
+    transfer_cost = cost_breakdown.get("transfer_cost", 0)
+    holding_cost = cost_breakdown.get("holding_cost", 0)
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Total Cost", f"${total_cost:,.0f}")
+    k2.metric("Manufacturing Cost", f"${mfg_cost:,.0f}", f"{mfg_cost/total_cost*100:.1f}% of total" if total_cost else "N/A")
+    k3.metric("Transfer Cost", f"${transfer_cost:,.0f}", f"{transfer_cost/total_cost*100:.1f}% of total" if total_cost else "N/A")
+    k4.metric("Holding Cost", f"${holding_cost:,.0f}", f"{holding_cost/total_cost*100:.1f}% of total" if total_cost else "N/A")
+
+    k5, k6, k7, k8 = st.columns(4)
+    k5.metric("Total Transfers", optimized.get("total_transfers", 0))
+    k6.metric("Transfer Units", f"{optimized.get('transfer_units', 0):,.1f}")
+    k7.metric("Manufacturing Units", f"{optimized.get('manufacturing_units', 0):,.1f}")
+    k8.metric("Unique Products", len({t.get("product_id") for t in transfers_list} | {m.get("product_id") for m in mfg_list}))
+
+    st.markdown("---")
+
+    # ── Cost Breakdown chart ───────────────────────────────────────────────────
+    col_pie, col_bar = st.columns(2)
+
+    with col_pie:
+        st.markdown("#### Cost Breakdown")
+        pie_df = pd.DataFrame({
+            "Component": ["Manufacturing", "Transfer / Logistics", "Holding / Inventory"],
+            "Amount": [mfg_cost, transfer_cost, holding_cost],
+        })
+        fig_pie = px.pie(
+            pie_df, values="Amount", names="Component",
+            color_discrete_sequence=["#0ea5e9", "#38bdf8", "#7dd3fc"],
+            hole=0.45,
+        )
+        fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), showlegend=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    with col_bar:
+        st.markdown("#### Cost Components")
+        bar_df = pd.DataFrame({
+            "Component": ["Manufacturing", "Transfer", "Holding"],
+            "Cost ($)": [mfg_cost, transfer_cost, holding_cost],
+        })
+        fig_bar = px.bar(
+            bar_df, x="Component", y="Cost ($)",
+            color="Component",
+            color_discrete_sequence=["#0ea5e9", "#38bdf8", "#7dd3fc"],
+            text_auto=True,
+        )
+        fig_bar.update_layout(showlegend=False, margin=dict(t=10, b=10))
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    st.markdown("---")
+
+    # ── Top Transfers by Cost ──────────────────────────────────────────────────
+    st.markdown("#### Top 15 Transfers by Transport Cost")
+    if transfers_list:
+        t_df = pd.DataFrame([
+            {
+                "Route": f"{t.get('from_store')}→{t.get('to_store')}",
+                "Product": t.get("product_id", ""),
+                "Quantity": t.get("quantity", 0),
+                "Transport Cost ($)": t.get("cost_impact", {}).get("transport_cost", 0),
+                "Reasons": ", ".join(t.get("reason_codes", [])),
             }
+            for t in transfers_list
+        ])
+        t_df = t_df.sort_values("Transport Cost ($)", ascending=False).head(15).reset_index(drop=True)
+        t_df.index += 1
 
-            # Try to load extra files (non-fatal)
-            try:
-                data["optimization_summary"] = load_json("optimization/output-csv/optimization_summary.json")
-            except Exception:
-                data["optimization_summary"] = None
+        col_ttbl, col_tbar = st.columns([1, 1])
+        with col_ttbl:
+            st.dataframe(t_df[["Route", "Product", "Quantity", "Transport Cost ($)"]], use_container_width=True)
+        with col_tbar:
+            fig_t = px.bar(
+                t_df.head(10), x="Transport Cost ($)", y="Route",
+                orientation="h", color="Transport Cost ($)",
+                color_continuous_scale="Blues", text_auto=True,
+            )
+            fig_t.update_layout(yaxis=dict(autorange="reversed"), showlegend=False, margin=dict(t=10, b=10))
+            st.plotly_chart(fig_t, use_container_width=True)
 
-            data["inventory"] = load_csv("optimization/output-csv/optimization_inventory.csv")
-            data["optimization_transfers_csv"] = load_csv("optimization/output-csv/optimization_transfers.csv")
-            data["optimization_manufacturing_csv"] = load_csv("optimization/output-csv/optimization_manufacturing.csv")
+        csv_buf = io.StringIO()
+        t_df.to_csv(csv_buf, index=False)
+        st.download_button(
+            "⬇ Download Transfers CSV", csv_buf.getvalue(),
+            file_name="top_transfers.csv", mime="text/csv",
+        )
+    else:
+        st.info("No transfer data loaded.")
 
-            # Demand forecast context
-            data["forecast_metrics"] = load_csv("demand-forecast/output/product_forecast_metrics.csv")
-            # product_forecasts.csv can be large; load if present
-            data["product_forecasts"] = load_csv("demand-forecast/output/product_forecasts.csv")
+    st.markdown("---")
 
-            # Build a small RAG context (only include rows relevant to the user's filters)
-            def _normalize_param_ids(params):
-                # Accept forms like 'product_489' or '489'
-                pids = []
-                sids = []
-                for p in params.get("product_id", []):
-                    if isinstance(p, str) and p.startswith("product_"):
-                        pids.append(p.split("product_")[-1])
-                    else:
-                        pids.append(str(p))
-                for s in params.get("store_id", []):
-                    if isinstance(s, str) and s.startswith("store_"):
-                        sids.append(s.split("store_")[-1])
-                    else:
-                        sids.append(str(s))
-                return pids, sids
+    # ── Top Manufacturing Decisions ────────────────────────────────────────────
+    st.markdown("#### Top 15 Manufacturing Decisions by Cost")
+    if mfg_list:
+        m_df = pd.DataFrame([
+            {
+                "Product": m.get("product_id", ""),
+                "Manufacture Qty": m.get("manufacture_quantity", 0),
+                "Manufacturing Cost ($)": m.get("cost_impact", {}).get("manufacturing_cost", 0),
+                "Reasons": ", ".join(m.get("reason_codes", [])),
+            }
+            for m in mfg_list
+        ])
+        m_df = m_df.sort_values("Manufacturing Cost ($)", ascending=False).head(15).reset_index(drop=True)
+        m_df.index += 1
 
-            def _build_rag_text(data, params, intent, limit=10):
-                pids, sids = _normalize_param_ids(params or {})
-                lines = []
-                # Collect transfers (CSV prioritized for tabular rows)
-                transfers_rows = data.get("optimization_transfers_csv") or data.get("transfers", {}).get("transfers", [])
-                mfg_rows = data.get("optimization_manufacturing_csv") or data.get("manufacturing", {}).get("manufacturing_actions", [])
-                inv_rows = data.get("inventory", [])
-                forecast_rows = data.get("forecast_metrics", [])
+        col_mtbl, col_mbar = st.columns([1, 1])
+        with col_mtbl:
+            st.dataframe(m_df[["Product", "Manufacture Qty", "Manufacturing Cost ($)"]], use_container_width=True)
+        with col_mbar:
+            fig_m = px.bar(
+                m_df.head(10), x="Manufacturing Cost ($)", y="Product",
+                orientation="h", color="Manufacturing Cost ($)",
+                color_continuous_scale="Blues", text_auto=True,
+            )
+            fig_m.update_layout(yaxis=dict(autorange="reversed"), showlegend=False, margin=dict(t=10, b=10))
+            st.plotly_chart(fig_m, use_container_width=True)
 
-                def _match_row(row):
-                    # row may use keys like product_id, from_store, to_store, store_id
-                    try:
-                        prod = str(row.get("product_id", ""))
-                        if pids and prod not in pids:
-                            return False
-                        if sids:
-                            # check any store field
-                            if (str(row.get("from_store", "")) not in sids) and (str(row.get("to_store", "")) not in sids) and (str(row.get("store_id", "")) not in sids):
-                                return False
-                        return True
-                    except Exception:
-                        return False
+        csv_buf2 = io.StringIO()
+        m_df.to_csv(csv_buf2, index=False)
+        st.download_button(
+            "⬇ Download Manufacturing CSV", csv_buf2.getvalue(),
+            file_name="top_manufacturing.csv", mime="text/csv",
+        )
+    else:
+        st.info("No manufacturing data loaded.")
 
-                # add matching transfers
-                added = 0
-                for r in transfers_rows:
-                    if _match_row(r):
-                        lines.append(f"TRANSFER | from={r.get('from_store')} to={r.get('to_store')} product={r.get('product_id')} qty={r.get('qty') or r.get('quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('transport_cost'))} reasons={r.get('reason_codes')}")
-                        added += 1
-                        if added >= limit:
-                            break
-                # manufacturing
-                added = 0
-                for r in mfg_rows:
-                    if _match_row(r):
-                        lines.append(f"MANUFACTURE | store={r.get('store_id') or ''} product={r.get('product_id')} qty={r.get('qty') or r.get('manufacture_quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('manufacturing_cost'))} reasons={r.get('reason_codes')}")
-                        added += 1
-                        if added >= limit:
-                            break
-                # inventory short snapshot
-                added = 0
-                for r in inv_rows:
-                    if pids and str(r.get('product_id')) not in pids:
-                        continue
-                    if sids and str(r.get('store_id')) not in sids:
-                        continue
-                    lines.append(f"INVENTORY | store={r.get('store_id')} product={r.get('product_id')} current={r.get('current')} final={r.get('final')} target={r.get('target')}")
-                    added += 1
-                    if added >= limit:
-                        break
-                # forecast metrics
-                added = 0
-                for r in forecast_rows:
-                    if pids and str(r.get('product_id')) not in pids:
-                        continue
-                    if sids and str(r.get('store_id')) not in sids:
-                        continue
-                    lines.append(f"FORECAST_METRIC | store={r.get('store_id')} product={r.get('product_id')} MAE={r.get('MAE')} RMSE={r.get('RMSE')}")
-                    added += 1
-                    if added >= limit:
-                        break
-                if not lines:
-                    return ""  # nothing relevant
-                # just return the structured rows; raw_explanation will be appended after it's computed
-                rag = "\n".join(lines)
-                return rag
+    st.markdown("---")
 
-            with st.spinner("Building explanation…"):
-                raw_explanation = build_explanation(intent, data, params)
+    # ── Inventory Coverage ─────────────────────────────────────────────────────
+    st.markdown("#### Inventory Coverage: Current vs. Target (sample)")
+    if inv_list:
+        inv_df = pd.DataFrame(inv_list)
+        for col in ("current", "final", "target"):
+            if col in inv_df.columns:
+                inv_df[col] = pd.to_numeric(inv_df[col], errors="coerce")
+        if "store_id" in inv_df.columns and "current" in inv_df.columns and "target" in inv_df.columns:
+            store_inv = (
+                inv_df.groupby("store_id", as_index=False)
+                .agg({"current": "sum", "final": "sum", "target": "sum"})
+                .sort_values("store_id")
+                .head(20)
+            )
+            store_inv["store_id"] = store_inv["store_id"].astype(str)
+            fig_inv = go.Figure()
+            fig_inv.add_trace(go.Bar(name="Current", x=store_inv["store_id"], y=store_inv["current"], marker_color="#94a3b8"))
+            fig_inv.add_trace(go.Bar(name="Final (Post-Opt)", x=store_inv["store_id"], y=store_inv["final"], marker_color="#0ea5e9"))
+            fig_inv.add_trace(go.Scatter(name="Target", x=store_inv["store_id"], y=store_inv["target"], mode="lines+markers", line=dict(color="#f97316", width=2, dash="dot")))
+            fig_inv.update_layout(barmode="group", xaxis_title="Store ID", yaxis_title="Units", margin=dict(t=10, b=10))
+            st.plotly_chart(fig_inv, use_container_width=True)
 
-            # Build RAG context AFTER raw_explanation is computed
-            rag_rows_only = _build_rag_text(data, params, intent)
-            # Append raw_explanation to the RAG context
-            rag_text = (rag_rows_only + "\n\nRAW_EXPLANATION:\n" + raw_explanation) if rag_rows_only else raw_explanation
+    st.markdown("---")
 
-            refined = None
-            fallback = False
-            refinement_rejected = False
+    # ── Reason Code Analysis ───────────────────────────────────────────────────
+    st.markdown("#### Transfer Decision Reasons")
+    if transfers_list:
+        reason_counts: dict[str, int] = {}
+        for t in transfers_list:
+            for r in t.get("reason_codes", []):
+                reason_counts[r] = reason_counts.get(r, 0) + 1
+        r_df = pd.DataFrame(list(reason_counts.items()), columns=["Reason", "Count"])
+        r_df["Reason"] = r_df["Reason"].str.replace("_", " ").str.title()
+        r_df = r_df.sort_values("Count", ascending=True)
+        fig_r = px.bar(r_df, x="Count", y="Reason", orientation="h", color="Count", color_continuous_scale="Blues", text_auto=True)
+        fig_r.update_layout(showlegend=False, margin=dict(t=10, b=10))
+        st.plotly_chart(fig_r, use_container_width=True)
 
-            # Check for empty state responses directly from explanation_engine
-            is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match") or raw_explanation.startswith("No urgent")
+    # ── Full JSON export ────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### Export Raw Optimization Data")
+    col_dl1, col_dl2, col_dl3 = st.columns(3)
+    with col_dl1:
+        st.download_button(
+            "⬇ scenario_summary.json",
+            json.dumps(scenario_data, indent=2),
+            file_name="scenario_summary.json",
+            mime="application/json",
+        )
+    with col_dl2:
+        st.download_button(
+            "⬇ transfer_recommendations.json",
+            json.dumps(_all.get("transfers", {}), indent=2),
+            file_name="transfer_recommendations.json",
+            mime="application/json",
+        )
+    with col_dl3:
+        st.download_button(
+            "⬇ manufacturing_decisions.json",
+            json.dumps(_all.get("manufacturing", {}), indent=2),
+            file_name="manufacturing_decisions.json",
+            mime="application/json",
+        )
 
-            # Bypass LLM refinement for tabular/list data to prevent hallucination
-            table_intents = ("list_entities", "total_counts", "top_transfers", "top_manufacturing",
-                           "urgent_transfers", "high_cost_actions", "reason_analysis",
-                           "store_activity", "product_recommendations", "cost_breakdown")
-            skip_refiner = is_empty_state or intent in table_intents
 
-            if skip_refiner:
-                refined = raw_explanation
-            else:
-                try:
-                    with st.spinner("Refining with TinyLlama…"):
-                        # If we have a small RAG context, pass that as the factual input to the refiner
-                        refined_input = rag_text if rag_text else raw_explanation
-                        refined = refine_explanation(refined_input, user_question=prompt)
-                        # Safety checks on refined output to detect possible hallucination
-                        if not refined or len(refined) < 10:
-                            refinement_rejected = True
-                        else:
-                            lower_refined = refined.lower()
-                            # Reject outputs that contain uncertainty cues or unrelated long narratives
-                            uncertain_phrases = ["i think", "maybe", "could be", "possibly", "as an ai", "as a model"]
-                            unrelated_indicators = ["transportation system", "buses", "passengers", "cargo", "trams"]
-                            if any(p in lower_refined for p in uncertain_phrases):
-                                refinement_rejected = True
-                            if any(p in lower_refined for p in unrelated_indicators):
-                                refinement_rejected = True
-                            # Bound size to prevent huge unrelated text
-                            if len(refined) > 5000:
-                                refinement_rejected = True
-                except Exception:
-                    fallback = True
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — Demand Forecast Analysis
+# ══════════════════════════════════════════════════════════════════════════════
 
-            if refinement_rejected or fallback:
-                # Prefer deterministic root explanation in case of doubt
-                final_response = raw_explanation or "Insufficient data to answer."
+with tab3:
+    _all3 = _load_all_data()
+    fm_list = _all3.get("forecast_metrics", [])
 
-                # Add a provenance note mapping by intent to the primary data source
-                provenance_map = {
-                    "explain_transfer": "optimization/output-json/transfer_recommendations.json",
-                    "top_transfers": "optimization/output-json/transfer_recommendations.json",
-                    "urgent_transfers": "optimization/output-json/transfer_recommendations.json",
-                    "store_activity": "optimization/output-json/transfer_recommendations.json",
-                    "explain_manufacturing": "optimization/output-json/manufacturing_decisions.json",
-                    "top_manufacturing": "optimization/output-json/manufacturing_decisions.json",
-                    "high_cost_actions": "optimization/output-json/manufacturing_decisions.json",
-                    "product_recommendations": "optimization/output-json/manufacturing_decisions.json",
-                    "total_counts": "optimization/output-json/scenario_summary.json",
-                    "scenario_summary": "optimization/output-json/scenario_summary.json",
-                    "cost_breakdown": "optimization/output-json/scenario_summary.json",
-                    "reason_analysis": "optimization/output-json/transfer_recommendations.json",
-                }
-                prov = provenance_map.get(intent)
-                if prov:
-                    final_response += f"\n\n[Source: {prov} — deterministic summary]"
+    st.markdown("### Demand Forecast Model Performance")
 
-                if refinement_rejected and not fallback:
-                    final_response += "\n\n[Note: A refined summary was suppressed because it appeared to contain unrelated or uncertain content. Displaying the original deterministic output.]"
-                if fallback:
-                    final_response += "\n\n[Note: LLM refinement unavailable. Displaying root deterministic evaluation.]"
-            else:
-                final_response = refined if refined else raw_explanation
+    if fm_list:
+        fm_df = pd.DataFrame(fm_list)
+        for col in ("MAE", "RMSE", "n_train", "n_test"):
+            if col in fm_df.columns:
+                fm_df[col] = pd.to_numeric(fm_df[col], errors="coerce")
 
-            st.markdown(final_response)
+        # ── KPIs ─────────────────────────────────────────────────────────────
+        fk1, fk2, fk3, fk4 = st.columns(4)
+        fk1.metric("Store-Product Pairs", len(fm_df))
+        fk2.metric("Mean MAE", f"{fm_df['MAE'].mean():.3f}" if "MAE" in fm_df else "N/A")
+        fk3.metric("Mean RMSE", f"{fm_df['RMSE'].mean():.3f}" if "RMSE" in fm_df else "N/A")
+        fk4.metric("Unique Stores", fm_df["store_id"].nunique() if "store_id" in fm_df else "N/A")
 
-            if fallback or refinement_rejected:
-                st.markdown(
-                    '<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>',
-                    unsafe_allow_html=True,
+        st.markdown("---")
+
+        # ── MAE Distribution ─────────────────────────────────────────────────
+        col_hist, col_store = st.columns(2)
+        with col_hist:
+            st.markdown("#### MAE Distribution")
+            if "MAE" in fm_df.columns:
+                fig_h = px.histogram(fm_df, x="MAE", nbins=30, color_discrete_sequence=["#0ea5e9"])
+                fig_h.update_layout(margin=dict(t=10, b=10))
+                st.plotly_chart(fig_h, use_container_width=True)
+
+        with col_store:
+            st.markdown("#### Mean MAE per Store (top 20)")
+            if "store_id" in fm_df.columns and "MAE" in fm_df.columns:
+                store_mae = fm_df.groupby("store_id", as_index=False)["MAE"].mean().sort_values("MAE", ascending=False).head(20)
+                store_mae["store_id"] = store_mae["store_id"].astype(str)
+                fig_s = px.bar(store_mae, x="store_id", y="MAE", color="MAE", color_continuous_scale="Oranges", text_auto=True)
+                fig_s.update_layout(xaxis_title="Store ID", showlegend=False, margin=dict(t=10, b=10))
+                st.plotly_chart(fig_s, use_container_width=True)
+
+        st.markdown("---")
+
+        # ── MAE vs RMSE scatter ───────────────────────────────────────────────
+        st.markdown("#### MAE vs RMSE by Store-Product")
+        if "MAE" in fm_df.columns and "RMSE" in fm_df.columns:
+            scatter_df = fm_df.copy()
+            scatter_df["store_id"] = scatter_df["store_id"].astype(str)
+            fig_sc = px.scatter(
+                scatter_df, x="MAE", y="RMSE",
+                color="store_id", hover_data=["product_id"] if "product_id" in scatter_df.columns else None,
+                opacity=0.7,
+            )
+            fig_sc.update_layout(showlegend=False, margin=dict(t=10, b=10))
+            st.plotly_chart(fig_sc, use_container_width=True)
+
+        st.markdown("---")
+
+        # ── Full metrics table ────────────────────────────────────────────────
+        st.markdown("#### Full Forecast Metrics Table")
+        display_cols = [c for c in ("store_id", "product_id", "MAE", "RMSE", "n_train", "n_test") if c in fm_df.columns]
+        st.dataframe(fm_df[display_cols].sort_values("MAE", ascending=False).reset_index(drop=True), use_container_width=True)
+
+        csv_fm = io.StringIO()
+        fm_df[display_cols].to_csv(csv_fm, index=False)
+        st.download_button(
+            "⬇ Download Forecast Metrics CSV", csv_fm.getvalue(),
+            file_name="forecast_metrics.csv", mime="text/csv",
+        )
+    else:
+        st.info("Forecast metrics not found at demand-forecast/output/product_forecast_metrics.csv.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — AI Assistant (existing chat)
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab1:
+    for msg in st.session_state.messages:
+        avatar_val = AVATAR_USER if msg["role"] == "user" else AVATAR_AI
+        with st.chat_message(msg["role"], avatar=avatar_val):
+            st.markdown(msg["content"], unsafe_allow_html=True)
+
+    if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar=AVATAR_USER):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant", avatar=AVATAR_AI):
+            with st.spinner("Classifying intent…"):
+                intent = classify_intent(prompt)
+
+            params = extract_parameters(prompt)
+
+            # Contextual fallback for follow-up questions
+            if intent == "out_of_scope" and st.session_state.last_intent:
+                has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+                if params["is_all"] or has_specifics:
+                    intent = st.session_state.last_intent
+
+            if intent not in ("out_of_scope", "greeting"):
+                st.session_state.last_intent = intent
+
+            label = INTENT_LABELS.get(intent, intent)
+
+            if intent == "greeting":
+                response = (
+                    "Hello. I am the Supply Chain Analytics Assistant.\n\n"
+                    "I can help you analyze optimization recommendations across multiple dimensions:\n\n"
+                    "**Overview & Summaries:**\n"
+                    "- *\"Provide a scenario summary\"* - Overall optimization results\n"
+                    "- *\"Show cost breakdown\"* - Detailed cost composition\n"
+                    "- *\"How many recommendations total\"* - Summary counts\n\n"
+                    "**Transfer Analysis:**\n"
+                    "- *\"Explain transfer recommendations\"* - Detailed transfer details\n"
+                    "- *\"Top transfers by cost\"* - Prioritized high-cost transfers\n"
+                    "- *\"Urgent transfers\"* - Transfers for stockout prevention\n"
+                    "- *\"Store activity\"* - Store involvement in transfers\n\n"
+                    "**Manufacturing Analysis:**\n"
+                    "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
+                    "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
+                    "**Decision Insights:**\n"
+                    "- *\"Why these decisions\"* - Analysis of decision reasons\n"
+                    "- *\"High-cost actions\"* - Most expensive recommendations\n"
+                    "- *\"Product specific details\"* - Product-level recommendations\n\n"
+                    "Please enter your query below to get started."
                 )
+                st.markdown(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            elif intent == "out_of_scope":
+                response = (
+                    "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
+                    "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
+                    "Please rephrase your request. For example:\n"
+                    "- *\"Why was inventory transferred between facilities?\"*\n"
+                    "- *\"What manufacturing actions were recommended?\"*\n"
+                    "- *\"Compare the optimized scenario against the baseline.\"*"
+                )
+                st.markdown(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            else:
+                has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
 
-            full_display = f"{badge_html}\n\n{final_response}"
-            if fallback or refinement_rejected:
-                full_display += '\n\n<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>'
+                badge_html = f'<span class="intent-badge">{label}</span>'
+                if has_specifics:
+                    badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
+                st.markdown(badge_html, unsafe_allow_html=True)
+                data = {
+                    "scenario": load_json(f"{SAMPLE_DATA_DIR}/scenario_summary.json"),
+                    "transfers": load_json(f"{SAMPLE_DATA_DIR}/transfer_recommendations.json"),
+                    "manufacturing": load_json(f"{SAMPLE_DATA_DIR}/manufacturing_decisions.json"),
+                    # Additional contextual sources (optimization CSVs and demand-forecast outputs)
+                    "optimization_summary": None,
+                    "inventory": [],
+                    "optimization_transfers_csv": [],
+                    "optimization_manufacturing_csv": [],
+                    "forecast_metrics": [],
+                    "product_forecasts": [],
+                }
 
-            st.session_state.messages.append({"role": "assistant", "content": full_display})
+                # Try to load extra files (non-fatal)
+                try:
+                    data["optimization_summary"] = load_json("optimization/output-csv/optimization_summary.json")
+                except Exception:
+                    data["optimization_summary"] = None
+
+                data["inventory"] = load_csv("optimization/output-csv/optimization_inventory.csv")
+                data["optimization_transfers_csv"] = load_csv("optimization/output-csv/optimization_transfers.csv")
+                data["optimization_manufacturing_csv"] = load_csv("optimization/output-csv/optimization_manufacturing.csv")
+
+                # Demand forecast context
+                data["forecast_metrics"] = load_csv("demand-forecast/output/product_forecast_metrics.csv")
+                # product_forecasts.csv can be large; load if present
+                data["product_forecasts"] = load_csv("demand-forecast/output/product_forecasts.csv")
+
+                # Build a small RAG context (only include rows relevant to the user's filters)
+                def _normalize_param_ids(params):
+                    # Accept forms like 'product_489' or '489'
+                    pids = []
+                    sids = []
+                    for p in params.get("product_id", []):
+                        if isinstance(p, str) and p.startswith("product_"):
+                            pids.append(p.split("product_")[-1])
+                        else:
+                            pids.append(str(p))
+                    for s in params.get("store_id", []):
+                        if isinstance(s, str) and s.startswith("store_"):
+                            sids.append(s.split("store_")[-1])
+                        else:
+                            sids.append(str(s))
+                    return pids, sids
+
+                def _build_rag_text(data, params, intent, limit=10):
+                    pids, sids = _normalize_param_ids(params or {})
+                    lines = []
+                    # Collect transfers (CSV prioritized for tabular rows)
+                    transfers_rows = data.get("optimization_transfers_csv") or data.get("transfers", {}).get("transfers", [])
+                    mfg_rows = data.get("optimization_manufacturing_csv") or data.get("manufacturing", {}).get("manufacturing_actions", [])
+                    inv_rows = data.get("inventory", [])
+                    forecast_rows = data.get("forecast_metrics", [])
+
+                    def _match_row(row):
+                        # row may use keys like product_id, from_store, to_store, store_id
+                        try:
+                            prod = str(row.get("product_id", ""))
+                            if pids and prod not in pids:
+                                return False
+                            if sids:
+                                # check any store field
+                                if (str(row.get("from_store", "")) not in sids) and (str(row.get("to_store", "")) not in sids) and (str(row.get("store_id", "")) not in sids):
+                                    return False
+                            return True
+                        except Exception:
+                            return False
+
+                    # add matching transfers
+                    added = 0
+                    for r in transfers_rows:
+                        if _match_row(r):
+                            lines.append(f"TRANSFER | from={r.get('from_store')} to={r.get('to_store')} product={r.get('product_id')} qty={r.get('qty') or r.get('quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('transport_cost'))} reasons={r.get('reason_codes')}")
+                            added += 1
+                            if added >= limit:
+                                break
+                    # manufacturing
+                    added = 0
+                    for r in mfg_rows:
+                        if _match_row(r):
+                            lines.append(f"MANUFACTURE | store={r.get('store_id') or ''} product={r.get('product_id')} qty={r.get('qty') or r.get('manufacture_quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('manufacturing_cost'))} reasons={r.get('reason_codes')}")
+                            added += 1
+                            if added >= limit:
+                                break
+                    # inventory short snapshot
+                    added = 0
+                    for r in inv_rows:
+                        if pids and str(r.get('product_id')) not in pids:
+                            continue
+                        if sids and str(r.get('store_id')) not in sids:
+                            continue
+                        lines.append(f"INVENTORY | store={r.get('store_id')} product={r.get('product_id')} current={r.get('current')} final={r.get('final')} target={r.get('target')}")
+                        added += 1
+                        if added >= limit:
+                            break
+                    # forecast metrics
+                    added = 0
+                    for r in forecast_rows:
+                        if pids and str(r.get('product_id')) not in pids:
+                            continue
+                        if sids and str(r.get('store_id')) not in sids:
+                            continue
+                        lines.append(f"FORECAST_METRIC | store={r.get('store_id')} product={r.get('product_id')} MAE={r.get('MAE')} RMSE={r.get('RMSE')}")
+                        added += 1
+                        if added >= limit:
+                            break
+                    if not lines:
+                        return ""  # nothing relevant
+                    # just return the structured rows; raw_explanation will be appended after it's computed
+                    rag = "\n".join(lines)
+                    return rag
+
+                with st.spinner("Building explanation…"):
+                    raw_explanation = build_explanation(intent, data, params)
+
+                # Build RAG context AFTER raw_explanation is computed
+                rag_rows_only = _build_rag_text(data, params, intent)
+                # Append raw_explanation to the RAG context
+                rag_text = (rag_rows_only + "\n\nRAW_EXPLANATION:\n" + raw_explanation) if rag_rows_only else raw_explanation
+
+                refined = None
+                fallback = False
+                refinement_rejected = False
+
+                # Check for empty state responses directly from explanation_engine
+                is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match") or raw_explanation.startswith("No urgent")
+
+                # Bypass LLM refinement for tabular/list data to prevent hallucination
+                table_intents = ("list_entities", "total_counts", "top_transfers", "top_manufacturing",
+                               "urgent_transfers", "high_cost_actions", "reason_analysis",
+                               "store_activity", "product_recommendations", "cost_breakdown")
+                skip_refiner = is_empty_state or intent in table_intents
+
+                if skip_refiner:
+                    refined = raw_explanation
+                else:
+                    try:
+                        with st.spinner("Refining with TinyLlama…"):
+                            # If we have a small RAG context, pass that as the factual input to the refiner
+                            refined_input = rag_text if rag_text else raw_explanation
+                            refined = refine_explanation(refined_input, user_question=prompt)
+                            # Safety checks on refined output to detect possible hallucination
+                            if not refined or len(refined) < 10:
+                                refinement_rejected = True
+                            else:
+                                lower_refined = refined.lower()
+                                # Reject outputs that contain uncertainty cues or unrelated long narratives
+                                uncertain_phrases = ["i think", "maybe", "could be", "possibly", "as an ai", "as a model"]
+                                unrelated_indicators = ["transportation system", "buses", "passengers", "cargo", "trams"]
+                                if any(p in lower_refined for p in uncertain_phrases):
+                                    refinement_rejected = True
+                                if any(p in lower_refined for p in unrelated_indicators):
+                                    refinement_rejected = True
+                                # Bound size to prevent huge unrelated text
+                                if len(refined) > 5000:
+                                    refinement_rejected = True
+                    except Exception:
+                        fallback = True
+
+                if refinement_rejected or fallback:
+                    # Prefer deterministic root explanation in case of doubt
+                    final_response = raw_explanation or "Insufficient data to answer."
+
+                    # Add a provenance note mapping by intent to the primary data source
+                    provenance_map = {
+                        "explain_transfer": "optimization/output-json/transfer_recommendations.json",
+                        "top_transfers": "optimization/output-json/transfer_recommendations.json",
+                        "urgent_transfers": "optimization/output-json/transfer_recommendations.json",
+                        "store_activity": "optimization/output-json/transfer_recommendations.json",
+                        "explain_manufacturing": "optimization/output-json/manufacturing_decisions.json",
+                        "top_manufacturing": "optimization/output-json/manufacturing_decisions.json",
+                        "high_cost_actions": "optimization/output-json/manufacturing_decisions.json",
+                        "product_recommendations": "optimization/output-json/manufacturing_decisions.json",
+                        "total_counts": "optimization/output-json/scenario_summary.json",
+                        "scenario_summary": "optimization/output-json/scenario_summary.json",
+                        "cost_breakdown": "optimization/output-json/scenario_summary.json",
+                        "reason_analysis": "optimization/output-json/transfer_recommendations.json",
+                    }
+                    prov = provenance_map.get(intent)
+                    if prov:
+                        final_response += f"\n\n[Source: {prov} — deterministic summary]"
+
+                    if refinement_rejected and not fallback:
+                        final_response += "\n\n[Note: A refined summary was suppressed because it appeared to contain unrelated or uncertain content. Displaying the original deterministic output.]"
+                    if fallback:
+                        final_response += "\n\n[Note: LLM refinement unavailable. Displaying root deterministic evaluation.]"
+                else:
+                    final_response = refined if refined else raw_explanation
+
+                st.markdown(final_response)
+
+                if fallback or refinement_rejected:
+                    st.markdown(
+                        '<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>',
+                        unsafe_allow_html=True,
+                    )
+
+                full_display = f"{badge_html}\n\n{final_response}"
+                if fallback or refinement_rejected:
+                    full_display += '\n\n<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>'
+
+                st.session_state.messages.append({"role": "assistant", "content": full_display})

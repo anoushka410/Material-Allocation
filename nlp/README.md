@@ -1,236 +1,170 @@
-# NLP Supply Chain Assistant
+# NLP Component - Supply Chain Assistant
 
 ## Overview
-AI-powered chatbot assistant for supply chain optimization. Analyzes optimization results and provides intelligent, conversational insights to supply chain managers. The system reads optimization recommendations from JSON files and answers open-ended questions about transfers, manufacturing actions, and scenario outcomes.
+Natural Language Processing module for supply chain optimization queries. Processes user questions and provides intelligent, conversational responses by analyzing optimization output data from the optimization engine.
 
 ---
 
-## Architecture
+## Core Components
 
-### Data Flow
-1. **Optimizer Engine** produces 3 JSON files per batch run:
-   - `transfer.json` - Transfer recommendations between stores
-   - `manufacturing.json` - Manufacturing action recommendations
-   - `scenario.json` - Scenario metrics and comparison data
+### 1. **intent_classifier.py**
+Classifies user queries into specific intents using LLM-based classification with keyword fallback.
 
-2. **NLP Module** (read-only):
-   - Loads the 3 JSON files
-   - Processes user queries against this data
-   - Returns conversational responses with insights
+**Supported Intents:**
+- `explain_transfer` - Transfer recommendations and routing decisions
+- `explain_manufacturing` - Manufacturing decisions and production actions
+- `scenario_summary` - Overall scenario metrics and cost breakdown
+- `impact_analysis` - Cost savings and financial impact
+- `total_counts` - Summary counts and statistics
+- `out_of_scope` - Unrelated queries
+- `greeting` - Greeting messages
 
-3. **Streamlit UI** (`app.py`):
-   - Displays recommendations dashboard
-   - Provides chat interface for user queries
-   - Shows key metrics and global insights
+### 2. **explanation_engine.py**
+Generates explanations by extracting and formatting data from optimization JSON files.
 
-### Key Principles
-- **Read-Only**: NLP never computes or modifies data, only reads from JSONs
-- **No External APIs**: All responses derived from JSON data
-- **Batch Processing**: Each optimizer run overwrites the 3 JSON files
-- **On-Demand Analysis**: Users can refresh queries anytime
+**Key Functions:**
+- `explain_transfer()` - Provides transfer recommendation details
+- `explain_manufacturing()` - Details manufacturing decisions
+- `explain_scenario()` - Summarizes scenario metrics
+- `explain_counts()` - Provides summary statistics
+- `explain_entities()` - Lists affected products and stores
+- `build_explanation()` - Orchestrates explanation generation
+
+### 3. **refiner.py**
+Refines raw explanations into natural, conversational responses using LLM-based text refinement.
+
+### 4. **llm_client.py**
+Handles communication with Ollama LLM service for intent classification and response refinement.
+
+### 5. **schemas.py**
+Pydantic models for JSON data validation (optional validation layer).
 
 ---
 
-## File Structure
+## Data Source
 
-```
-nlp/
-├── app.py                    # Streamlit UI application
-├── chatbot.py               # Query handler & response generation
-├── explain_transfer.py      # Transfer recommendation explanations
-├── explain_manufacturing.py # Manufacturing action explanations
-├── explain_scenario.py      # Scenario metrics explanations
-├── schemas.py               # Data validation schemas
-├── reason_map.py            # Reasoning logic and mappings
-├── llm_refiner.py          # Response refinement utilities
-├── main.py                  # CLI entry point (optional)
-├── sample_inputs/
-│   ├── transfer.json        # Sample transfer recommendations
-│   ├── manufacturing.json   # Sample manufacturing actions
-│   └── scenario.json        # Sample scenario metrics
-└── README.md               # This file
-```
+**Location:** `optimization/output-json/`
+
+**Expected Files:**
+1. `transfer_recommendations.json` - Transfer decisions between stores
+2. `manufacturing_decisions.json` - Manufacturing action decisions
+3. `scenario_summary.json` - Scenario metrics and cost breakdown
 
 ---
 
 ## JSON Data Schemas
 
-### 1. `transfer.json`
+### transfer_recommendations.json
 ```json
 {
+  "scenario": "optimization_run",
   "transfers": [
     {
-      "product_id": "string",
       "from_store": "string",
       "to_store": "string",
+      "product_id": "string",
       "quantity": "number",
-      "reason": "string",
-      "urgency": "high|medium|low"
+      "reason_codes": ["string"],
+      "cost_impact": {
+        "transport_cost": "number"
+      }
     }
   ]
 }
 ```
 
-### 2. `manufacturing.json`
+### manufacturing_decisions.json
 ```json
 {
+  "scenario": "optimization_run",
   "manufacturing_actions": [
     {
       "product_id": "string",
       "manufacture_quantity": "number",
-      "target_location": "string",
-      "reason": "string",
-      "deadline": "string"
+      "reason_codes": ["string"],
+      "cost_impact": {
+        "manufacturing_cost": "number"
+      }
     }
   ]
 }
 ```
 
-### 3. `scenario.json`
+### scenario_summary.json
 ```json
 {
-  "scenario": "string (description)",
-  "baseline": {
-    "total_stockouts": "number",
-    "total_cost": "number",
-    ...
-  },
+  "scenario": "optimization_run",
   "optimized": {
-    "total_stockouts": "number",
     "total_cost": "number",
-    ...
+    "total_transfers": "number",
+    "manufacturing_units": "number",
+    "transfer_units": "number"
   },
-  "delta": {
-    "cost_change": "number",
-    "stockout_reduction": "number",
-    ...
+  "cost_breakdown": {
+    "manufacturing_cost": "number",
+    "transfer_cost": "number",
+    "holding_cost": "number"
   }
 }
 ```
 
 ---
 
-## Running the Application
+## Query Examples
 
-### Prerequisites
-```bash
-pip install streamlit
+**Transfer Queries:**
+- "Explain the transfer recommendations"
+- "How many transfers are recommended"
+- "What transfers involve store 60"
+- "Show transfers for product 489"
+
+**Manufacturing Queries:**
+- "Detail the manufacturing decisions"
+- "How many manufacturing actions are needed"
+- "What products need to be manufactured"
+
+**Scenario Queries:**
+- "What is the total cost"
+- "Provide a scenario summary"
+- "Show me the cost breakdown"
+
+**Count/Summary Queries:**
+- "How many stores are affected"
+- "How many unique products are involved"
+- "Total recommendations count"
+
+---
+
+## Architecture
+
+```
+User Input (Chat)
+    ↓
+intent_classifier.py → Classifies intent + extracts parameters
+    ↓
+explanation_engine.py → Loads data & generates raw explanation
+    ↓
+refiner.py → Refines with LLM (if available)
+    ↓
+Response Output
 ```
 
-### Start the App
-```bash
-streamlit run app.py
-```
+---
 
-The app will open at `http://localhost:8501`
+## Key Parameters
+
+**Transfer/Manufacturing Filters:**
+- `product_id` - Filter by specific product (e.g., "product_489")
+- `store_id` - Filter by store ID (e.g., "store_60")
+- `is_all` - Include all results (triggered by "all", "total", etc.)
 
 ---
 
-## Features
+## Performance Characteristics
 
-### 1. **Recommendations Dashboard**
-- View all transfers and manufacturing actions
-- Select specific recommendations to analyze
-- See key performance metrics (baseline vs optimized)
-
-### 2. **Chat Interface**
-- Ask open-ended questions about recommendations
-- Get conversational explanations for supply chain decisions
-- Chat history preserved during session
-
-### 3. **Global Insights**
-- Total transfers and manufacturing actions count
-- Risk level assessment
-- Cost impact analysis
-- Stockout reduction metrics
-
-### 4. **Context-Aware Responses**
-- Ask general questions (e.g., "How many transfers?")
-- Ask specific questions about selected items (e.g., "Why move these units?")
-- Ask scenario comparisons (e.g., "What improved?")
-
----
-
-## Example Queries
-
-**General Questions:**
-- "What's the overall cost impact?"
-- "How many stockouts were reduced?"
-- "How many manufacturing actions are needed?"
-
-**Transfer-Specific:**
-- "Why is this transfer needed?"
-- "Is this urgent?"
-- "What happens if we skip this transfer?"
-
-**Manufacturing-Specific:**
-- "When do we need to manufacture?"
-- "How critical is this product?"
-- "What's the deadline?"
-
-**Scenario Analysis:**
-- "What improved compared to baseline?"
-- "Is this scenario better?"
-- "How much did we save?"
-
----
-
-## Module Responsibilities
-
-| Module | Purpose |
-|--------|---------|
-| `app.py` | Streamlit UI, data loading, session management |
-| `chatbot.py` | Main query handler, orchestrates response generation |
-| `explain_transfer.py` | Extract and explain transfer recommendations |
-| `explain_manufacturing.py` | Extract and explain manufacturing actions |
-| `explain_scenario.py` | Analyze scenario metrics and comparisons |
-| `schemas.py` | Validate JSON data structures |
-| `reason_map.py` | Map reasons and decision logic |
-| `llm_refiner.py` | Polish responses for better readability |
-
----
-
-## Development Notes
-
-### Adding a New Question Type
-1. Identify the relevant data in the 3 JSONs
-2. Add logic to `chatbot.py` to detect this question type
-3. Create or modify `explain_*.py` modules to extract answers
-4. Return conversational response
-
-### Testing
-Place test JSON files in `sample_inputs/` and verify queries work as expected.
-
-### Performance
-- Data loads once per app session (cached)
-- No API calls or external dependencies
-- Response generation is instant
-
----
-
-## Troubleshooting
-
-### App keeps loading
-Check `chatbot.py` for blocking operations. Ensure `handle_query()` returns immediately.
-
-### JSON not found
-Verify 3 JSON files exist in `sample_inputs/` directory.
-
-### Empty responses
-Check that JSON files contain expected data structure matching schemas above.
-
----
-
-## Future Enhancements
-- Add export functionality (PDF/CSV reports)
-- Implement query logging and analytics
-- Add multi-scenario comparison UI
-- Persist chat history to database
-- Add confidence scores to recommendations
-
----
-
-## Contact & Support
-For questions about the supply chain optimization logic, contact the optimization team.
-For NLP/UI issues, refer to the code comments and schemas in this directory.
+- **Data Loading:** Single load per app session (optimization/output-json files)
+- **Intent Classification:** Ollama LLM with keyword fallback (~2-3 seconds)
+- **Response Refinement:** Optional LLM refinement (~3-5 seconds)
+- **No External APIs:** All responses derived from local JSON files
+- **Read-Only:** NLP module never modifies source data
 

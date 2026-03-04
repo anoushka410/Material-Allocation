@@ -1,22 +1,33 @@
-import requests
+from openai import OpenAI, APIError
+from nlp.config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_MAX_TOKENS, OPENAI_TEMPERATURE
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "tinyllama"
-TIMEOUT = 30
+_client: OpenAI | None = None
+
+
+def _get_client() -> OpenAI:
+    """Return a cached OpenAI client, initialised lazily."""
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=OPENAI_API_KEY)
+    return _client
 
 
 def call_llm(messages: list[dict]) -> str:
-    payload = {
-        "model": MODEL,
-        "messages": messages,
-        "stream": False,
-        # Force deterministic output to reduce hallucination risk
-        "options": {"temperature": 0.0},
-    }
-    response = requests.post(OLLAMA_URL, json=payload, timeout=TIMEOUT)
-    response.raise_for_status()
-    data = response.json()
-    # Defensive checks — return an explicit placeholder if the response is malformed or empty
-    if not data or "message" not in data or "content" not in data["message"]:
+    """Send *messages* to the OpenAI chat API and return the reply text.
+
+    Returns an empty string on any error so callers can fall back gracefully.
+    Temperature is forced to 0 to keep answers deterministic and factual.
+    """
+    try:
+        response = _get_client().chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=messages,
+            temperature=OPENAI_TEMPERATURE,
+            max_tokens=OPENAI_MAX_TOKENS,
+        )
+        content = response.choices[0].message.content
+        return content.strip() if content else ""
+    except APIError:
         return ""
-    return data["message"]["content"].strip()
+    except Exception:
+        return ""

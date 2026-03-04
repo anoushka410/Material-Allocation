@@ -1,5 +1,4 @@
 import re
-from nlp.llm_client import call_llm
 
 ALLOWED_INTENTS = {
     "explain_transfer",
@@ -23,52 +22,6 @@ _GREETING_KEYWORDS = {
     "hi", "hello", "hey", "howdy", "greetings", "sup", "what's up",
     "good morning", "good afternoon", "good evening", "hiya", "yo",
 }
-
-SYSTEM_PROMPT = (
-    "You are an intent classifier for a supply chain NLP assistant. "
-    "Given a user message, return exactly one label from this list:\n"
-    "  explain_transfer\n"
-    "  explain_manufacturing\n"
-    "  scenario_summary\n"
-    "  impact_analysis\n"
-    "  total_counts\n"
-    "  top_transfers\n"
-    "  top_manufacturing\n"
-    "  urgent_transfers\n"
-    "  high_cost_actions\n"
-    "  reason_analysis\n"
-    "  store_activity\n"
-    "  product_recommendations\n"
-    "  cost_breakdown\n"
-    "  out_of_scope\n\n"
-    "Label definitions:\n"
-    "  explain_transfer           → detailed transfer recommendations and routing\n"
-    "  explain_manufacturing      → manufacturing decisions and production actions\n"
-    "  scenario_summary           → high-level scenario overview\n"
-    "  impact_analysis            → cost impact, financial metrics\n"
-    "  total_counts               → summary counts and statistics\n"
-    "  top_transfers              → prioritized transfers by quantity or cost\n"
-    "  top_manufacturing          → prioritized manufacturing actions by cost or quantity\n"
-    "  urgent_transfers           → transfers marked with high urgency/priority (stockout prevention)\n"
-    "  high_cost_actions          → expensive transfers or manufacturing decisions\n"
-    "  reason_analysis            → analysis of why decisions were made (reason codes)\n"
-    "  store_activity             → store-specific involvement in transfers\n"
-    "  product_recommendations    → product-specific decisions and impact\n"
-    "  cost_breakdown             → detailed cost composition analysis\n"
-    "  out_of_scope               → unrelated to supply chain\n\n"
-    "Examples:\n"
-    "  'what are the top transfers' → top_transfers\n"
-    "  'most expensive manufacturing' → high_cost_actions\n"
-    "  'why are these transfers needed' → reason_analysis\n"
-    "  'what stores are most active' → store_activity\n"
-    "  'how much does manufacturing cost' → cost_breakdown\n"
-    "  'urgent transfers' → urgent_transfers\n"
-    "  'product 489 details' → product_recommendations\n\n"
-    "Rules:\n"
-    "- Return ONLY the label. No punctuation, no explanation.\n"
-    "- If ambiguous between two intents, prefer the more specific one.\n"
-    "- If about costs/expenses, default to high_cost_actions or cost_breakdown."
-)
 
 _KEYWORD_MAP = {
     "explain_transfer": [
@@ -165,10 +118,6 @@ def _keyword_classify(text: str) -> str:
             return intent
             
     return "out_of_scope"
-
-
-import re
-from nlp.llm_client import call_llm
 
 
 class StructuredParameterExtractor:
@@ -313,15 +262,17 @@ def extract_parameters(user_message: str) -> dict:
 
 
 def classify_intent(user_message: str) -> str:
+    """Classify the user's intent using keyword matching.
+
+    Uses a priority-ordered keyword map so more specific intents (e.g.
+    ``top_manufacturing``) take precedence over general ones (e.g.
+    ``explain_manufacturing``).  No external LLM call is required, making
+    classification fast and offline-safe.
+    """
     lower = user_message.strip().lower()
     if lower in _GREETING_KEYWORDS or any(lower.startswith(g) for g in _GREETING_KEYWORDS):
         return "greeting"
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_message},
-    ]
-    
     def _fallback_with_params(intent: str) -> str:
         if intent == "out_of_scope":
             params = extract_parameters(user_message)
@@ -329,11 +280,4 @@ def classify_intent(user_message: str) -> str:
                 return "explain_transfer"
         return intent
 
-    try:
-        raw = call_llm(messages).strip().lower()
-        label = raw.split()[0] if raw else ""
-        if label in ALLOWED_INTENTS:
-            return _fallback_with_params(label)
-        return _fallback_with_params(_keyword_classify(user_message))
-    except Exception:
-        return _fallback_with_params(_keyword_classify(user_message))
+    return _fallback_with_params(_keyword_classify(user_message))

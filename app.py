@@ -16,6 +16,7 @@ import os
 from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation
 from nlp.refiner import refine_explanation
+from nlp.chatbot import SupplyChainChatbot
 from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios, sensitivity_analysis_text
 from optimization.stochastic import generate_scenarios, compute_cvar
 from optimization.scenarios import ScenarioRegistry
@@ -1484,7 +1485,7 @@ with tab1:
                 refined = raw_explanation
             else:
                 try:
-                    with st.spinner("Refining with TinyLlama…"):
+                    with st.spinner("Refining with OpenAI…"):
                         refined_input = rag_text if rag_text else raw_explanation
                         refined = refine_explanation(refined_input, user_question=prompt)
                         if not refined or len(refined) < 10:
@@ -1524,16 +1525,16 @@ with tab1:
                     final_response += f"\n\n[Source: {prov} — deterministic summary]"
 
                 if refinement_rejected and not fallback:
-                    final_response += "\n\n[Note: A refined summary was suppressed because it appeared to contain unrelated or uncertain content. Displaying the original deterministic output.]"
+                    final_response += "\n\n[Note: An OpenAI-refined summary was suppressed because it appeared to contain unrelated or uncertain content. Displaying the original deterministic output.]"
                 if fallback:
-                    final_response += "\n\n[Note: LLM refinement unavailable. Displaying root deterministic evaluation.]"
+                    final_response += "\n\n[Note: OpenAI refinement unavailable. Displaying root deterministic evaluation.]"
             else:
                 final_response = refined if refined else raw_explanation
 
             scenario_badge = f'<span class="filter-badge">Scenario: {nlp_scenario}</span>'
             full_display = f"{badge_html} {scenario_badge}\n\n{final_response}"
             if fallback or refinement_rejected:
-                full_display += '\n\n<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>'
+                full_display += '\n\n<p class="fallback-note">System indicator: OpenAI refinement suppressed. Displaying root deterministic evaluation.</p>'
 
             st.session_state.messages.append({"role": "assistant", "content": full_display})
             st.rerun()

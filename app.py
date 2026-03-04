@@ -7,6 +7,7 @@ import streamlit as st
 import csv
 import ast
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import tempfile
@@ -345,6 +346,8 @@ INTENT_LABELS = {
     "store_activity": "Store Activity",
     "product_recommendations": "Product Actions",
     "cost_breakdown": "Cost Breakdown",
+    "inventory_gaps": "Inventory Gaps",
+    "inventory_status": "Inventory Health",
     "out_of_scope": "Out of Scope",
 }
 
@@ -729,6 +732,71 @@ with tab2:
             st.plotly_chart(fig_inv, use_container_width=True)
 
     st.markdown("---")
+
+    # ── Inventory Health Metrics ───────────────────────────────────────────────
+    st.markdown("#### Inventory Health Summary (BEFORE Optimization)")
+    if inv_list and len(inv_list) > 0:
+        inv_df_health = pd.DataFrame(inv_list)
+        for col in ("current", "final", "target"):
+            if col in inv_df_health.columns:
+                inv_df_health[col] = pd.to_numeric(inv_df_health[col], errors="coerce")
+
+        if all(c in inv_df_health.columns for c in ("current", "target")):
+            # Check CURRENT inventory against TARGET (before optimization)
+            inv_df_health["coverage_ratio"] = inv_df_health["current"] / inv_df_health["target"].replace(0, 1)
+            inv_df_health["status"] = inv_df_health["coverage_ratio"].apply(
+                lambda x: "Critical" if x < 0.8 else ("Warning" if x < 1.0 else "Healthy")
+            )
+
+            # Health counts
+            col_h1, col_h2, col_h3, col_h4 = st.columns(4)
+            health_counts = inv_df_health["status"].value_counts()
+            col_h1.metric("🟢 At Target", health_counts.get("Healthy", 0))
+            col_h2.metric("🟡 Below Target", health_counts.get("Warning", 0))
+            col_h3.metric("🔴 Critical Gap", health_counts.get("Critical", 0))
+            col_h4.metric("Avg Current Coverage", f"{inv_df_health['coverage_ratio'].mean():.1%}")
+
+            st.markdown("---")
+
+            # Top products with gaps (CURRENT vs TARGET, not final)
+            st.markdown("#### ⚠️ Top Store-Products with Inventory Gaps (Current < Target)")
+            gaps_df = inv_df_health[inv_df_health["current"] < inv_df_health["target"]].copy()
+            gaps_df["gap"] = gaps_df["target"] - gaps_df["current"]
+
+            if len(gaps_df) > 0:
+                # Top 10 by gap
+                top_gaps = gaps_df.nlargest(10, "gap")[["product_id", "store_id", "current", "final", "target", "gap"]].copy()
+                top_gaps["product_id"] = top_gaps["product_id"].astype(str)
+                top_gaps["store_id"] = top_gaps["store_id"].astype(str)
+                top_gaps = top_gaps.round(2)
+
+                col_gap_tbl, col_gap_chart = st.columns([1, 1])
+                with col_gap_tbl:
+                    st.dataframe(top_gaps.rename(columns={
+                        "product_id": "Product",
+                        "store_id": "Store",
+                        "current": "Current",
+                        "final": "Final",
+                        "target": "Target",
+                        "gap": "Gap"
+                    }), use_container_width=True, hide_index=True)
+
+                with col_gap_chart:
+                    gap_chart_data = top_gaps.sort_values("gap")
+                    gap_chart_data["label"] = gap_chart_data["product_id"] + " (Store " + gap_chart_data["store_id"] + ")"
+                    fig_gaps = px.bar(
+                        gap_chart_data,
+                        x="gap",
+                        y="label",
+                        orientation="h",
+                        color="gap",
+                        color_continuous_scale="Reds",
+                        labels={"gap": "Gap (units)", "label": "Product - Store"}
+                    )
+                    fig_gaps.update_layout(showlegend=False, margin=dict(t=10, b=10), yaxis_title="")
+                    st.plotly_chart(fig_gaps, use_container_width=True)
+            else:
+                st.success("✓ All inventory levels meet or exceed targets!")
 
     # ── Reason Code Analysis ───────────────────────────────────────────────────
     st.markdown("#### Transfer Decision Reasons")
@@ -1299,6 +1367,12 @@ with tab1:
             intent = classify_intent(prompt)
 
         params = extract_parameters(prompt)
+
+        # ✅ Extract and merge list parameters (limit, sort_by, order)
+        from nlp.intent_classifier import extract_list_parameters
+        list_params = extract_list_parameters(prompt)
+        params.update(list_params)
+
         params["scenario"] = _resolve_nlp_scenario(params)
 
         # Contextual fallback for follow-up questions
@@ -1328,6 +1402,10 @@ with tab1:
                 "**Manufacturing Analysis:**\n"
                 "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
                 "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
+                "**Inventory Analysis:**\n"
+                "- *\"Inventory gaps\"* - Current inventory below targets by store/product\n"
+                "- *\"Inventory status\"* - Overall inventory health summary\n"
+                "- *\"Inventory gaps in store 100\"* - Store-specific inventory issues\n\n"
                 "**Decision Insights:**\n"
                 "- *\"Why these decisions\"* - Analysis of decision reasons\n"
                 "- *\"High-cost actions\"* - Most expensive recommendations\n"
@@ -1365,24 +1443,17 @@ with tab1:
             if intent in ("scenario_summary", "impact_analysis"):
                 scenario_payload = scoped.get("scenario_summary_all", {})
 
+            # Extract list parameters (limit, sort_by, order)
+            from nlp.intent_classifier import extract_list_parameters
+            list_params = extract_list_parameters(prompt)
+            params.update(list_params)
+
             data = {
                 "scenario": scenario_payload,
                 "transfers": scoped.get("transfers", {}),
                 "manufacturing": scoped.get("manufacturing", {}),
-                # Additional contextual sources (optimization CSVs and demand-forecast outputs)
-                "optimization_summary": None,
                 "inventory": scoped.get("inventory", []),
-                "optimization_transfers_csv": scoped.get("opt_transfers", []),
-                "optimization_manufacturing_csv": scoped.get("opt_manufacturing", []),
-                "forecast_metrics": load_csv("demand-forecast/output/product_forecast_metrics.csv"),
-                "product_forecasts": load_csv("demand-forecast/output/product_forecasts.csv"),
             }
-
-            # Try to load extra files (non-fatal)
-            try:
-                data["optimization_summary"] = load_json(f"optimization/output-csv/{nlp_scenario}/optimization_summary.json")
-            except Exception:
-                data["optimization_summary"] = None
 
             # Build a small RAG context (only include rows relevant to the user's filters)
             def _normalize_param_ids(params):
@@ -1404,11 +1475,10 @@ with tab1:
             def _build_rag_text(data, params, intent, limit=10):
                 pids, sids = _normalize_param_ids(params or {})
                 lines = []
-                # Collect transfers (CSV prioritized for tabular rows)
-                transfers_rows = data.get("optimization_transfers_csv") or data.get("transfers", {}).get("transfers", [])
-                mfg_rows = data.get("optimization_manufacturing_csv") or data.get("manufacturing", {}).get("manufacturing_actions", [])
+                # Use ONLY JSON sources
+                transfers_rows = data.get("transfers", {}).get("transfers", [])
+                mfg_rows = data.get("manufacturing", {}).get("manufacturing_actions", [])
                 inv_rows = data.get("inventory", [])
-                forecast_rows = data.get("forecast_metrics", [])
 
                 def _match_row(row):
                     # row may use keys like product_id, from_store, to_store, store_id
@@ -1446,16 +1516,6 @@ with tab1:
                     if sids and str(r.get('store_id')) not in sids:
                         continue
                     lines.append(f"INVENTORY | store={r.get('store_id')} product={r.get('product_id')} current={r.get('current')} final={r.get('final')} target={r.get('target')}")
-                    added += 1
-                    if added >= limit:
-                        break
-                added = 0
-                for r in forecast_rows:
-                    if pids and str(r.get('product_id')) not in pids:
-                        continue
-                    if sids and str(r.get('store_id')) not in sids:
-                        continue
-                    lines.append(f"FORECAST_METRIC | store={r.get('store_id')} product={r.get('product_id')} MAE={r.get('MAE')} RMSE={r.get('RMSE')}")
                     added += 1
                     if added >= limit:
                         break

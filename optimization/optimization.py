@@ -164,38 +164,36 @@ def assign_manufacturing_reasons(s, p, qty, data, store_mfg_total):
     return reasons if reasons else ["aggregate_demand_exceeds_inventory"]
 
 
-def _merge_unique(existing: list[dict], new: list[dict], key_fields: list[str]) -> list[dict]:
-    """Merge two lists of dicts, de-duping by a tuple of key_fields."""
-    seen = set()
-    out: list[dict] = []
+def reset_json_outputs(output_dir: str = "output-json"):
+    """Delete existing JSON files to start fresh (called before run_all_scenarios)."""
+    out_dir = Path(output_dir)
+    json_files = ['transfer_recommendations.json', 'manufacturing_decisions.json', 'inventory.json', 'scenario_summary.json']
 
-    def _key(r: dict) -> tuple:
-        return tuple(r.get(k) for k in key_fields)
-
-    for r in existing:
-        k = _key(r)
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(r)
-    for r in new:
-        k = _key(r)
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(r)
-    return out
+    for json_file in json_files:
+        file_path = out_dir / json_file
+        if file_path.exists():
+            file_path.unlink()
+            print(f"Deleted {file_path}")
 
 
-def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: str = "base_case_standard_conditions"):
-    """Save/append optimization results to flat JSON files.
+def _merge_unique(existing_data: list, new_data: list, key_func) -> list:
+    """Merge new records, replacing old ones with matching keys."""
+    existing_dict = {key_func(item): item for item in existing_data}
+    new_dict = {key_func(item): item for item in new_data}
+    existing_dict.update(new_dict)
+    return list(existing_dict.values())
 
-    Output schema (exactly 3 files under output_dir):
-      - transfer_recommendations.json  : {"scenario": "all", "transfers": [...]} where each transfer has scenario
-      - manufacturing_decisions.json   : {"scenario": "all", "manufacturing_actions": [...]} where each action has scenario
-      - scenario_summary.json          : {"scenario": "all", "scenarios": {<scenario_id>: {...}}, "scenario_ids": [...]}
 
-    Note: This is designed for dashboarding/NLP to load a single file per entity type.
+def save_json_outputs(transfers, manufacturing, inventory, costs, output_dir, scenario_id: str = "base_case_standard_conditions"):
+    """Save optimization results to 4 flat JSON files (append/merge logic).
+
+    Each record includes the scenario_id for identification.
+
+    Output schema (4 files under output_dir):
+      - transfer_recommendations.json  : {"transfers": [...]} (each with scenario field)
+      - manufacturing_decisions.json   : {"manufacturing_actions": [...]} (each with scenario field)
+      - inventory.json                 : {"inventory": [...]} (each with scenario field)
+      - scenario_summary.json          : {"summaries": [...]} (each with scenario field)
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -205,85 +203,70 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
 
     out_dir = Path(output_dir)
 
-    # --- Transfers (append; each record includes scenario) ---
-    transfers_path = out_dir / "transfer_recommendations.json"
-    existing_transfers: list[dict] = []
-    if transfers_path.exists():
-        try:
-            existing_transfers = json.loads(transfers_path.read_text()).get("transfers", [])
-        except Exception:
-            existing_transfers = []
-
-    transfers_with_scenario = []
-    for t in transfers:
-        tt = dict(t)
-        tt["scenario"] = scenario_id
-        transfers_with_scenario.append(tt)
+    # --- Transfers (append/merge by scenario) ---
+    transfers_with_scenario = [
+        {**t, "scenario": scenario_id}
+        for t in transfers
+    ]
+    existing_transfers = []
+    if (out_dir / "transfer_recommendations.json").exists():
+        existing_transfers = json.loads((out_dir / "transfer_recommendations.json").read_text()).get("transfers", [])
 
     merged_transfers = _merge_unique(
         existing_transfers,
         transfers_with_scenario,
-        key_fields=["scenario", "from_store", "to_store", "product_id"],
+        lambda x: (x["scenario"], x.get("from_store"), x.get("to_store"), x.get("product_id"))
+    )
+    (out_dir / "transfer_recommendations.json").write_text(
+        json.dumps({"transfers": merged_transfers}, indent=2)
     )
 
-    transfers_path.write_text(json.dumps({"transfers": merged_transfers}, indent=2))
-
-    # --- Manufacturing (append; each record includes scenario) ---
-    mfg_path = out_dir / "manufacturing_decisions.json"
-    existing_mfg: list[dict] = []
-    if mfg_path.exists():
-        try:
-            existing_mfg = json.loads(mfg_path.read_text()).get("manufacturing_actions", [])
-        except Exception:
-            existing_mfg = []
-
-    # Aggregate by product within scenario as before, but attach scenario to each action
-    mfg_by_product = {}
-    for m in manufacturing:
-        pid = m['product_id']
-        if pid not in mfg_by_product:
-            mfg_by_product[pid] = {'quantity': 0, 'cost': 0, 'reasons': set()}
-        mfg_by_product[pid]['quantity'] += m['quantity']
-        mfg_by_product[pid]['cost'] += m['cost']
-        mfg_by_product[pid]['reasons'].update(m['reason_codes'])
-
-    mfg_actions_with_scenario = [
-        {
-            "scenario": scenario_id,
-            "product_id": str(pid),
-            "manufacture_quantity": round(data['quantity'], 1),
-            "reason_codes": list(data['reasons']),
-            "cost_impact": {"manufacturing_cost": round(data['cost'], 2)},
-        }
-        for pid, data in mfg_by_product.items()
+    # --- Manufacturing (append/merge by scenario) ---
+    mfg_with_scenario = [
+        {**m, "scenario": scenario_id}
+        for m in manufacturing
     ]
+    existing_mfg = []
+    if (out_dir / "manufacturing_decisions.json").exists():
+        existing_mfg = json.loads((out_dir / "manufacturing_decisions.json").read_text()).get("manufacturing_actions", [])
 
     merged_mfg = _merge_unique(
         existing_mfg,
-        mfg_actions_with_scenario,
-        key_fields=["scenario", "product_id"],
+        mfg_with_scenario,
+        lambda x: (x["scenario"], x.get("store_id"), x.get("product_id"))
+    )
+    (out_dir / "manufacturing_decisions.json").write_text(
+        json.dumps({"manufacturing_actions": merged_mfg}, indent=2)
     )
 
-    mfg_path.write_text(json.dumps({"manufacturing_actions": merged_mfg}, indent=2))
+    # --- Inventory (append/merge by scenario) ---
+    inventory_with_scenario = [
+        {**inv, "scenario": scenario_id}
+        for inv in inventory
+    ]
+    existing_inventory = []
+    if (out_dir / "inventory.json").exists():
+        existing_inventory = json.loads((out_dir / "inventory.json").read_text()).get("inventory", [])
 
-    # --- Scenario summary (combined; array format) ---
-    summary_path = out_dir / "scenario_summary.json"
-    existing_summaries: list = []
-    if summary_path.exists():
-        try:
-            existing_data = json.loads(summary_path.read_text())
-            existing_summaries = existing_data.get("summaries", [])
-        except Exception:
-            existing_summaries = []
+    merged_inventory = _merge_unique(
+        existing_inventory,
+        inventory_with_scenario,
+        lambda x: (x["scenario"], x.get("store_id"), x.get("product_id"))
+    )
+    (out_dir / "inventory.json").write_text(
+        json.dumps({"inventory": merged_inventory}, indent=2)
+    )
 
-    # Create new scenario summary entry
-    new_summary = {
+    # --- Scenario Summary (append/merge by scenario) ---
+    summary = {
         "scenario": scenario_id,
         "optimized": {
             "total_cost": round(costs['total'], 2),
             "total_transfers": len(transfers),
             "manufacturing_units": round(sum(m['quantity'] for m in manufacturing), 1),
             "transfer_units": round(sum(t['quantity'] for t in transfers), 1),
+            "unique_products": len(set(m['product_id'] for m in manufacturing) | set(t['product_id'] for t in transfers)),
+            "total_inventory_value": round(sum(inv['final'] for inv in inventory), 2),
         },
         "cost_breakdown": {
             "manufacturing_cost": round(costs['manufacturing'], 2),
@@ -292,25 +275,20 @@ def save_json_outputs(transfers, manufacturing, costs, output_dir, scenario_id: 
         },
     }
 
-    # Update or append to summaries array
-    updated = False
-    for i, summary in enumerate(existing_summaries):
-        if summary.get("scenario") == scenario_id:
-            existing_summaries[i] = new_summary
-            updated = True
-            break
+    existing_summaries = []
+    if (out_dir / "scenario_summary.json").exists():
+        existing_summaries = json.loads((out_dir / "scenario_summary.json").read_text()).get("summaries", [])
 
-    if not updated:
-        existing_summaries.append(new_summary)
-
-    # Extract scenario IDs and sort
-    scenario_ids = sorted([s["scenario"] for s in existing_summaries])
-
-    summary_path.write_text(
-        json.dumps({"summaries": existing_summaries, "scenario_ids": scenario_ids}, indent=2)
+    merged_summaries = _merge_unique(
+        existing_summaries,
+        [summary],
+        lambda x: x.get("scenario")
+    )
+    (out_dir / "scenario_summary.json").write_text(
+        json.dumps({"summaries": merged_summaries}, indent=2)
     )
 
-    print(f"JSON outputs updated under {output_dir}/ (flat 3-file schema). Added scenario_id='{scenario_id}'")
+    print(f"JSON outputs saved to {output_dir}/ (appended, scenario='{scenario_id}')")
 
 
 def run_optimization(
@@ -347,6 +325,16 @@ def run_optimization(
     historical = pd.read_csv(historical_path)
     store_params = pd.read_csv(store_params_path)
     transport_matrix = pd.read_csv(transport_matrix_path, index_col=0).values
+
+    # FILTER to only products and stores in the forecast
+    forecast_products = set(forecast['product_id'].unique())
+    forecast_stores = set(forecast['store_id'].unique())
+
+    historical = historical[
+        (historical['product_id'].isin(forecast_products)) &
+        (historical['store_id'].isin(forecast_stores))
+    ]
+    store_params = store_params[store_params['store_id'].isin(forecast_stores)]
 
     # 2. PREPARE DATA
     demand_df = forecast.merge(
@@ -530,16 +518,26 @@ def run_optimization(
     mfg_json = [
         {
             'store_id': r['store_id'],
-            'product_id': r['product_id'],
+            'product_id': str(r['product_id']),
             'quantity': r['qty'],
             'cost': r['cost'],
             'reason_codes': r['reason_codes'],
         }
         for r in mfg_results
     ]
+    inventory_json = [
+        {
+            'store_id': inv['store_id'],
+            'product_id': str(inv['product_id']),
+            'current': inv['current'],
+            'final': inv['final'],
+            'target': inv['target'],
+        }
+        for inv in inventory_results
+    ]
 
     costs = {'total': total_cost, 'manufacturing': total_mfg, 'transfer': total_transfer, 'holding': total_holding}
-    save_json_outputs(transfers_json, mfg_json, costs, output_dir, scenario_id=scenario_id)
+    save_json_outputs(transfers_json, mfg_json, inventory_json, costs, output_dir, scenario_id=scenario_id)
 
     return {
         'scenario': scenario_id,
@@ -554,19 +552,27 @@ def run_all_scenarios(
     output_csv_root: str = "output-csv",
     time_limit: int = 300,
     seed: int = 42,
+    reset: bool = True,
 ) -> dict:
     """Run optimization for every scenario in ScenarioConfig.
 
-    Outputs (flat):
+    Args:
+        reset: If True, delete existing JSON files before starting.
+
+    Outputs (4 flat JSON files, appended per scenario):
       - output_root/transfer_recommendations.json
       - output_root/manufacturing_decisions.json
+      - output_root/inventory.json
       - output_root/scenario_summary.json
 
     CSVs remain scenario-specific under output_csv_root/<scenario_id>/.
     """
+    if reset:
+        reset_json_outputs(output_root)
+
+    # ...existing code...
     results = {}
 
-    # Ensure output_root exists and (optionally) clean legacy scenario folders
     Path(output_root).mkdir(parents=True, exist_ok=True)
 
     for scenario_id in ScenarioConfig.SCENARIOS.keys():

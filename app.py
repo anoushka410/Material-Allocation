@@ -466,19 +466,32 @@ with tab2:
         else:
             st.session_state.selected_scenario = scenario_options[0]
 
-    scen_col1, scen_col2, scen_col3 = st.columns([2, 1, 1])
+    scen_col1, scen_col2, scen_col3, scen_col4 = st.columns([2, 1, 1, 1])
+
     with scen_col1:
+        # Find the current index
+        current_idx = 0
+        if st.session_state.selected_scenario and st.session_state.selected_scenario in scenario_options:
+            current_idx = scenario_options.index(st.session_state.selected_scenario)
+
+        # Selectbox with on_change callback
         selected = st.selectbox(
             "View scenario",
             options=scenario_options,
-            index=scenario_options.index(st.session_state.selected_scenario) if st.session_state.selected_scenario in scenario_options else 0,
+            index=current_idx,
+            key="scenario_selectbox",
+            on_change=lambda: setattr(st.session_state, 'selected_scenario', st.session_state.scenario_selectbox)
         )
+
+        # Ensure session state is immediately updated
         st.session_state.selected_scenario = selected
 
     with scen_col2:
         run_one = st.button("Run selected", use_container_width=True)
     with scen_col3:
         run_all = st.button("Run all", use_container_width=True)
+    with scen_col4:
+        reset_opt = st.button("🗑️ Reset", use_container_width=True, help="Delete all optimization output files")
 
     if run_one:
         with st.spinner(f"Running optimization: {st.session_state.selected_scenario} …"):
@@ -509,6 +522,36 @@ with tab2:
         else:
             st.error("Optimization failed")
             st.code(msg)
+
+    if reset_opt:
+        with st.spinner("Resetting optimization outputs…"):
+            try:
+                from optimization.optimization import reset_json_outputs
+                import shutil
+
+                # Reset JSON files
+                reset_json_outputs("optimization/output-json")
+
+                # Remove CSV directories for each scenario
+                csv_root = "optimization/output-csv"
+                if os.path.exists(csv_root):
+                    for scenario_dir in os.listdir(csv_root):
+                        scenario_path = os.path.join(csv_root, scenario_dir)
+                        if os.path.isdir(scenario_path):
+                            shutil.rmtree(scenario_path)
+                            print(f"Deleted {scenario_path}")
+
+                # Clear cache and rerun
+                try:
+                    st.cache_data.clear()
+                except Exception:
+                    pass
+
+                st.success("✓ All optimization outputs deleted successfully!")
+                st.session_state.selected_scenario = None
+                st.rerun()
+            except Exception as e:
+                st.error(f"Reset failed: {str(e)}")
 
     st.caption(
         "Click **Run all** once to generate scenario_summary.json with all scenarios. Use **View scenario** to switch dashboards."

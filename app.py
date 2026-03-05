@@ -26,6 +26,26 @@ from export.kpi_export import export_all_kpis
 SAMPLE_DATA_DIR = "optimization/output-json"
 DEFAULT_NLP_SCENARIO = "base_case_standard_conditions"
 
+# SVG Icon definitions
+def svg_icon_trash():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>'''
+
+def svg_icon_refresh():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path></svg>'''
+
+def svg_icon_download():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>'''
+
+def svg_icon_settings():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m4.24-4.24l4.24-4.24"></path></svg>'''
+
+def svg_icon_menu():
+    return '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>'''
+
+def button_label(text: str, icon: str = "→") -> str:
+    """Create a styled button label with icon."""
+    return f"{icon} {text}"
+
 if "selected_scenario" not in st.session_state:
     st.session_state.selected_scenario = None
 
@@ -207,6 +227,7 @@ st.set_page_config(
     page_title="Supply Chain Analytics",
     page_icon=None,
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -234,20 +255,20 @@ st.markdown(
 
     .main-header {
         text-align: left;
-        padding: 2rem 0 1rem;
+        padding: 1.5rem 0 1rem;
         border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
     }
 
     .main-header h1 {
-        font-size: 1.8rem;
+        font-size: 1.6rem;
         font-weight: 700;
         letter-spacing: -0.5px;
         margin-bottom: 0.3rem;
     }
 
     .main-header p {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         opacity: 0.7;
     }
 
@@ -302,9 +323,245 @@ st.markdown(
         }
     }
 
+    /* Chat input stays at bottom */
     .stChatInputContainer {
+        position: relative;
         border-radius: 8px !important;
         border: 1px solid rgba(148, 163, 184, 0.3) !important;
+        margin-top: auto;
+    }
+    
+    /* Sidebar styling */
+    .sidebar-control-panel {
+        padding: 1.5rem;
+    }
+
+    .sidebar-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #0f172a;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .sidebar-title {
+            color: #f8fafc;
+        }
+    }
+
+    .status-indicator-online {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #22c55e;
+        margin-right: 0.5rem;
+        animation: pulse 2s infinite;
+    }
+
+    .status-indicator-offline {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #ef4444;
+        margin-right: 0.5rem;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .status-text {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Chat container with proper layout */
+    .chat-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 300px);
+        min-height: 500px;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+
+    .chat-input-wrapper {
+        flex-shrink: 0;
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    /* SVG Icon styling */
+    .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        border-radius: 6px;
+        background-color: rgba(148, 163, 184, 0.1);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .icon-button:hover {
+        background-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .icon-button svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        stroke-width: 2;
+    }
+
+    /* Sidebar toggle visibility */
+    .sidebar-menu-button {
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    /* Professional button styling without emojis */
+    .download-button-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .download-icon {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid currentColor;
+        border-radius: 2px;
+        position: relative;
+    }
+
+    .download-icon::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 4px;
+        background: currentColor;
+    }
+
+    .download-icon::after {
+        content: '';
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 2px;
+        background: currentColor;
+    }
+
+    /* Visual indicator badges */
+    .visual-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+
+    .indicator-online {
+        background-color: #22c55e;
+        animation: pulse-online 2s infinite;
+    }
+
+    .indicator-offline {
+        background-color: #ef4444;
+    }
+
+    @keyframes pulse-online {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Professional status label */
+    .status-label {
+        display: inline-block;
+        font-weight: 500;
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    /* Download label styling */
+    .download-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+    }
+
+    /* Enhanced dashboard styling */
+    .metric-card {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(56, 189, 248, 0.05) 100%);
+        border: 1px solid rgba(14, 165, 233, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .metric-card:hover {
+        border-color: rgba(14, 165, 233, 0.4);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+    }
+
+    .dashboard-section {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .dashboard-section h2 {
+        margin-top: 0;
+        color: #f8fafc;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(14, 165, 233, 0.3);
+    }
+
+    .chart-container {
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .stMetric {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(56, 189, 248, 0.08) 100%);
+        border: 1px solid rgba(14, 165, 233, 0.2);
+        border-radius: 8px;
+        padding: 1rem !important;
+        transition: all 0.3s ease;
+    }
+
+    .stMetric:hover {
+        border-color: rgba(14, 165, 233, 0.4);
+        transform: translateY(-2px);
     }
     
     /* Hide Streamlit Default Elements */
@@ -312,9 +569,15 @@ st.markdown(
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 1000px;
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+        max-width: 1200px;
+    }
+
+    /* Tab styling - remove emoji display */
+    .stTabs [role="tab"] {
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
     }
     </style>
     """,
@@ -330,6 +593,36 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# Add sidebar toggle button that's always visible
+st.markdown("""
+<style>
+.sidebar-toggle-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(14, 165, 233, 0.2);
+    border: 1px solid rgba(14, 165, 233, 0.4);
+    color: #0ea5e9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 100;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.sidebar-toggle-btn:hover {
+    background: rgba(14, 165, 233, 0.3);
+    border-color: rgba(14, 165, 233, 0.6);
+    transform: scale(1.05);
+}
+</style>
+<div class="sidebar-toggle-btn" onclick="document.querySelector('[data-testid=baseButton-secondary]')?.click()" title="Click hamburger menu (☰) to toggle sidebar">
+  ☰ Toggle Sidebar
+</div>
+""", unsafe_allow_html=True)
 
 INTENT_LABELS = {
     "explain_transfer": "Transfer Details",
@@ -402,18 +695,24 @@ if "ollama_ok" not in st.session_state:
     st.session_state.ollama_ok = False
     st.session_state.ollama_msg = "Checking system status..."
 
-# Sidebar Controls
+# Sidebar Controls - Always Visible
 with st.sidebar:
-    st.markdown("### Control Panel")
-    
-    if st.button("Clear Conversation", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.last_intent = None
-        st.rerun()
+    st.markdown('<div class="sidebar-control-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title">🎛️ Control Panel</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button("Clear Conversation", use_container_width=True, key="clear_btn"):
+            st.session_state.messages = []
+            st.session_state.last_intent = None
+            st.rerun()
+    with col2:
+        if st.button("↻", use_container_width=True, help="Refresh", key="refresh_btn"):
+            st.rerun()
 
     st.markdown("---")
-    st.markdown("### System Status")
-    
+    st.markdown('<div class="sidebar-title">Status</div>', unsafe_allow_html=True)
+
     if "ollama_checked" not in st.session_state:
         # Check ollama on first load quietly
         ok, msg = _ensure_ollama()
@@ -421,17 +720,22 @@ with st.sidebar:
         st.session_state.ollama_msg = msg
         st.session_state.ollama_checked = True
 
+    # Status indicator with professional styling
     if st.session_state.ollama_ok:
-        st.success("Refinement Engine: Online")
+        status_html = '<span class="visual-indicator indicator-online"></span><span class="status-label">Online</span>'
+        st.markdown(status_html, unsafe_allow_html=True)
     else:
-        st.warning("Refinement Engine: Offline\n\n(Using Deterministic Fallback)")
-        st.caption(st.session_state.ollama_msg)
-        if st.button("Start Engine", use_container_width=True):
-            with st.spinner("Starting engine..."):
+        status_html = '<span class="visual-indicator indicator-offline"></span><span class="status-label">Offline</span>'
+        st.markdown(status_html, unsafe_allow_html=True)
+        st.caption("Using Fallback")
+        if st.button("Start Engine", use_container_width=True, key="start_engine"):
+            with st.spinner("Starting..."):
                 ok, msg = _ensure_ollama()
                 st.session_state.ollama_ok = ok
                 st.session_state.ollama_msg = msg
                 st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 AVATAR_USER = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#334155" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">U</text></svg>'''
 AVATAR_AI = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0ea5e9" rx="20"/><text x="50" y="65" font-family="sans-serif" font-weight="bold" font-size="50" fill="#f8fafc" text-anchor="middle">AI</text></svg>'''
@@ -439,11 +743,11 @@ AVATAR_AI = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><re
 # ── Tab layout ─────────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🤖 AI Assistant",
-    "📊 Optimization Dashboard",
-    "📈 Demand Forecast",
-    "🎲 Stochastic Scenarios",
-    "📡 Monitoring & Export",
+    "Assistant",
+    "Optimization",
+    "Forecasting",
+    "Scenarios",
+    "Monitoring",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -494,7 +798,7 @@ with tab2:
     with scen_col3:
         run_all = st.button("Run all", use_container_width=True)
     with scen_col4:
-        reset_opt = st.button("🗑️ Reset", use_container_width=True, help="Delete all optimization output files")
+        reset_opt = st.button("Reset", use_container_width=True, help="Delete all optimization output files")
 
     if run_one:
         with st.spinner(f"Running optimization: {st.session_state.selected_scenario} …"):
@@ -550,7 +854,7 @@ with tab2:
                 except Exception:
                     pass
 
-                st.success("✓ All optimization outputs deleted successfully!")
+                st.success("All optimization outputs deleted successfully!")
                 st.session_state.selected_scenario = None
                 st.rerun()
             except Exception as e:
@@ -663,7 +967,7 @@ with tab2:
         csv_buf = io.StringIO()
         t_df.to_csv(csv_buf, index=False)
         st.download_button(
-            "⬇ Download Transfers CSV", csv_buf.getvalue(),
+            "Download Transfers CSV", csv_buf.getvalue(),
             file_name="top_transfers.csv", mime="text/csv",
         )
     else:
@@ -701,7 +1005,7 @@ with tab2:
         csv_buf2 = io.StringIO()
         m_df.to_csv(csv_buf2, index=False)
         st.download_button(
-            "⬇ Download Manufacturing CSV", csv_buf2.getvalue(),
+            "Download Manufacturing CSV", csv_buf2.getvalue(),
             file_name="top_manufacturing.csv", mime="text/csv",
         )
     else:
@@ -751,15 +1055,15 @@ with tab2:
             # Health counts
             col_h1, col_h2, col_h3, col_h4 = st.columns(4)
             health_counts = inv_df_health["status"].value_counts()
-            col_h1.metric("🟢 At Target", health_counts.get("Healthy", 0))
-            col_h2.metric("🟡 Below Target", health_counts.get("Warning", 0))
-            col_h3.metric("🔴 Critical Gap", health_counts.get("Critical", 0))
+            col_h1.metric("At Target", health_counts.get("Healthy", 0))
+            col_h2.metric("Below Target", health_counts.get("Warning", 0))
+            col_h3.metric("Critical Gap", health_counts.get("Critical", 0))
             col_h4.metric("Avg Current Coverage", f"{inv_df_health['coverage_ratio'].mean():.1%}")
 
             st.markdown("---")
 
             # Top products with gaps (CURRENT vs TARGET, not final)
-            st.markdown("#### ⚠️ Top Store-Products with Inventory Gaps (Current < Target)")
+            st.markdown("#### Top Store-Products with Inventory Gaps (Current < Target)")
             gaps_df = inv_df_health[inv_df_health["current"] < inv_df_health["target"]].copy()
             gaps_df["gap"] = gaps_df["target"] - gaps_df["current"]
 
@@ -796,7 +1100,7 @@ with tab2:
                     fig_gaps.update_layout(showlegend=False, margin=dict(t=10, b=10), yaxis_title="")
                     st.plotly_chart(fig_gaps, use_container_width=True)
             else:
-                st.success("✓ All inventory levels meet or exceed targets!")
+                st.success("All inventory levels meet or exceed targets!")
 
     # ── Reason Code Analysis ───────────────────────────────────────────────────
     st.markdown("#### Transfer Decision Reasons")
@@ -818,21 +1122,21 @@ with tab2:
     col_dl1, col_dl2, col_dl3 = st.columns(3)
     with col_dl1:
         st.download_button(
-            "⬇ scenario_summary.json",
+            "Download scenario_summary.json",
             json.dumps(scenario_data, indent=2),
             file_name="scenario_summary.json",
             mime="application/json",
         )
     with col_dl2:
         st.download_button(
-            "⬇ transfer_recommendations.json",
+            "Download transfer_recommendations.json",
             json.dumps(_all.get("transfers", {}), indent=2),
             file_name="transfer_recommendations.json",
             mime="application/json",
         )
     with col_dl3:
         st.download_button(
-            "⬇ manufacturing_decisions.json",
+            "Download manufacturing_decisions.json",
             json.dumps(_all.get("manufacturing", {}), indent=2),
             file_name="manufacturing_decisions.json",
             mime="application/json",
@@ -907,7 +1211,7 @@ with tab3:
         csv_fm = io.StringIO()
         fm_df[display_cols].to_csv(csv_fm, index=False)
         st.download_button(
-            "⬇ Download Forecast Metrics CSV", csv_fm.getvalue(),
+            "Download Forecast Metrics CSV", csv_fm.getvalue(),
             file_name="forecast_metrics.csv", mime="text/csv",
         )
     else:
@@ -1298,7 +1602,7 @@ with tab5:
             csv_alerts = io.StringIO()
             alerts_df.to_csv(csv_alerts, index=False)
             st.download_button(
-                "⬇ Download full alerts CSV",
+                "Download Drift Alerts CSV",
                 csv_alerts.getvalue(),
                 file_name="drift_alerts.csv",
                 mime="text/csv",
@@ -1334,7 +1638,7 @@ with tab5:
                         zip_buf.seek(0)
                         st.success("Export ready!")
                         st.download_button(
-                            "Download KPI Export (CSV)",
+                            "Download KPI Export (ZIP)",
                             zip_buf.getvalue(),
                             file_name="supply_chain_kpis.zip",
                             mime="application/zip",
@@ -1348,93 +1652,251 @@ with tab5:
                         st.error(f"Export failed: {e}")
 
 with tab1:
-    for msg in reversed(st.session_state.messages):
-        avatar_val = AVATAR_USER if msg["role"] == "user" else AVATAR_AI
-        with st.chat_message(msg["role"], avatar=avatar_val):
-            st.markdown(msg["content"], unsafe_allow_html=True)
+    st.markdown("### Chat Assistant")
+    st.markdown("Query optimization scenarios, transfers, manufacturing decisions, and metrics.")
 
-    if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    # Enhanced chat UI with messages INSIDE the container
+    st.markdown("""
+    <style>
+    /* Main chat container */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 600px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+        border: 1px solid rgba(14, 165, 233, 0.3);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Messages scroll area - INSIDE container */
+    .messages-area {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        scroll-behavior: smooth;  /* Smooth scrolling */
+    }
+    
+    /* Message bubble */
+    .message-bubble {
+        display: flex;
+        animation: slideIn 0.3s ease-out;
+        margin-bottom: 0.5rem;
+    }
+    
+    .message-bubble.user-msg {
+        justify-content: flex-end;
+    }
+    
+    /* Message content */
+    .msg-content {
+        max-width: 75%;
+        padding: 1rem;
+        border-radius: 12px;
+        word-wrap: break-word;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+    
+    .msg-user {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.85) 0%, rgba(56, 189, 248, 0.65) 100%);
+        color: #f8fafc;
+        border: 1px solid rgba(14, 165, 233, 0.4);
+    }
+    
+    .msg-assistant {
+        background: rgba(30, 41, 59, 0.8);
+        color: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    
+    /* Empty state */
+    .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: rgba(148, 163, 184, 0.5);
+        text-align: center;
+        font-style: italic;
+        font-size: 0.95rem;
+    }
+    
+    /* Input section */
+    .input-section {
+        flex-shrink: 0;
+        padding: 1rem;
+        border-top: 1px solid rgba(14, 165, 233, 0.2);
+        background: rgba(15, 23, 42, 0.95);
+    }
+    
+    /* Scrollbar styling */
+    .messages-area::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .messages-area::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .messages-area::-webkit-scrollbar-thumb {
+        background: rgba(14, 165, 233, 0.3);
+        border-radius: 3px;
+    }
+    
+    .messages-area::-webkit-scrollbar-thumb:hover {
+        background: rgba(14, 165, 233, 0.5);
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Hide Streamlit's default block spacing inside chat */
+    .chat-container [class*="block-container"] {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .chat-container .stMarkdown {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        with st.spinner("Classifying intent…"):
-            intent = classify_intent(prompt)
+    # Chat container starts
+    import html
 
-        params = extract_parameters(prompt)
+    messages_html = '<div class="chat-container"><div class="messages-area" id="messagesArea">'
 
-        # ✅ Extract and merge list parameters (limit, sort_by, order)
-        from nlp.intent_classifier import extract_list_parameters
-        list_params = extract_list_parameters(prompt)
-        params.update(list_params)
+    # Build all messages as HTML string with proper escaping
+    if st.session_state.messages:
+        for msg in st.session_state.messages:
+            # Escape content to prevent HTML injection and display issues
+            content = html.escape(msg["content"])
+            # But preserve newlines and basic formatting
+            content = content.replace('\n', '<br>')
 
-        params["scenario"] = _resolve_nlp_scenario(params)
+            if msg["role"] == "user":
+                messages_html += f'''<div class="message-bubble user-msg">
+                    <div class="msg-content msg-user">{content}</div>
+                </div>'''
+            else:
+                messages_html += f'''<div class="message-bubble">
+                    <div class="msg-content msg-assistant">{content}</div>
+                </div>'''
+    else:
+        messages_html += '<div class="empty-state">Start a conversation by typing your question below...</div>'
 
-        # Contextual fallback for follow-up questions
-        if intent == "out_of_scope" and st.session_state.last_intent:
-            has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
-            if params["is_all"] or has_specifics:
-                intent = st.session_state.last_intent
+    # Add anchor element at the bottom for scroll targeting
+    messages_html += '<div id="messagesBottom" style="scroll-margin-top: 10px;"></div>'
 
-        if intent not in ("out_of_scope", "greeting"):
-            st.session_state.last_intent = intent
+    # Close container divs
+    messages_html += '</div></div>'
 
-        label = INTENT_LABELS.get(intent, intent)
+    # Render the entire container as one block
+    st.markdown(messages_html, unsafe_allow_html=True)
 
-        if intent == "greeting":
-            response = (
-                "Hello. I am the Supply Chain Analytics Assistant.\n\n"
-                "I can help you analyze optimization recommendations across multiple dimensions:\n\n"
-                "**Overview & Summaries:**\n"
-                "- *\"Provide a scenario summary\"* - Overall optimization results\n"
-                "- *\"Show cost breakdown\"* - Detailed cost composition\n"
-                "- *\"How many recommendations total\"* - Summary counts\n\n"
-                "**Transfer Analysis:**\n"
-                "- *\"Explain transfer recommendations\"* - Detailed transfer details\n"
-                "- *\"Top transfers by cost\"* - Prioritized high-cost transfers\n"
-                "- *\"Urgent transfers\"* - Transfers for stockout prevention\n"
-                "- *\"Store activity\"* - Store involvement in transfers\n\n"
-                "**Manufacturing Analysis:**\n"
-                "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
-                "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
-                "**Inventory Analysis:**\n"
-                "- *\"Inventory gaps\"* - Current inventory below targets by store/product\n"
-                "- *\"Inventory status\"* - Overall inventory health summary\n"
-                "- *\"Inventory gaps in store 100\"* - Store-specific inventory issues\n\n"
-                "**Decision Insights:**\n"
-                "- *\"Why these decisions\"* - Analysis of decision reasons\n"
-                "- *\"High-cost actions\"* - Most expensive recommendations\n"
-                "- *\"Product specific details\"* - Product-level recommendations\n\n"
-                "Please enter your query below to get started."
-            )
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.rerun()
-        elif intent == "out_of_scope":
-            response = (
-                "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
-                "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
-                "Please rephrase your request. For example:\n"
-                "- *\"Why was inventory transferred between facilities?\"*\n"
-                "- *\"What manufacturing actions were recommended?\"*\n"
-                "- *\"Compare the optimized scenario against the baseline.\"*"
-            )
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.rerun()
-        else:
-            has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+    # Input section OUTSIDE the container
+    col1, col2 = st.columns([20, 1])
 
-            badge_html = f'<span class="intent-badge">{label}</span>'
-            if has_specifics:
-                badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
+    with col1:
+        if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-            nlp_scenario = params["scenario"]
-            # Keep dashboard selection stable while loading scenario-scoped NLP data.
-            selected_before_chat = st.session_state.selected_scenario
-            scoped = _load_all_data_cached(nlp_scenario)
-            st.session_state.selected_scenario = selected_before_chat
+            with st.spinner("Classifying intent…"):
+                intent = classify_intent(prompt)
 
-            # Most intents need a single scenario payload for correct totals/costs.
-            scenario_payload = scoped.get("scenario", {})
-            if intent in ("scenario_summary", "impact_analysis"):
-                scenario_payload = scoped.get("scenario_summary_all", {})
+            params = extract_parameters(prompt)
+
+            # ✅ Extract and merge list parameters (limit, sort_by, order)
+            from nlp.intent_classifier import extract_list_parameters
+            list_params = extract_list_parameters(prompt)
+            params.update(list_params)
+
+            params["scenario"] = _resolve_nlp_scenario(params)
+
+            # Contextual fallback for follow-up questions
+            if intent == "out_of_scope" and st.session_state.last_intent:
+                has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+                if params["is_all"] or has_specifics:
+                    intent = st.session_state.last_intent
+
+            if intent not in ("out_of_scope", "greeting"):
+                st.session_state.last_intent = intent
+
+            label = INTENT_LABELS.get(intent, intent)
+
+            if intent == "greeting":
+                response = (
+                    "Hello. I am the Supply Chain Analytics Assistant.\n\n"
+                    "I can help you analyze optimization recommendations across multiple dimensions:\n\n"
+                    "**Overview & Summaries:**\n"
+                    "- *\"Provide a scenario summary\"* - Overall optimization results\n"
+                    "- *\"Show cost breakdown\"* - Detailed cost composition\n"
+                    "- *\"How many recommendations total\"* - Summary counts\n\n"
+                    "**Transfer Analysis:**\n"
+                    "- *\"Explain transfer recommendations\"* - Detailed transfer details\n"
+                    "- *\"Top transfers by cost\"* - Prioritized high-cost transfers\n"
+                    "- *\"Urgent transfers\"* - Transfers for stockout prevention\n"
+                    "- *\"Store activity\"* - Store involvement in transfers\n\n"
+                    "**Manufacturing Analysis:**\n"
+                    "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
+                    "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
+                    "**Inventory Analysis:**\n"
+                    "- *\"Inventory gaps\"* - Current inventory below targets by store/product\n"
+                    "- *\"Inventory status\"* - Overall inventory health summary\n"
+                    "- *\"Inventory gaps in store 100\"* - Store-specific inventory issues\n\n"
+                    "**Decision Insights:**\n"
+                    "- *\"Why these decisions\"* - Analysis of decision reasons\n"
+                    "- *\"High-cost actions\"* - Most expensive recommendations\n"
+                    "- *\"Product specific details\"* - Product-level recommendations\n\n"
+                    "Please enter your query below to get started."
+                )
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                st.rerun()
+            elif intent == "out_of_scope":
+                response = (
+                    "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
+                    "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
+                    "Please rephrase your request. For example:\n"
+                    "- *\"Why was inventory transferred between facilities?\"*\n"
+                    "- *\"What manufacturing actions were recommended?\"*\n"
+                    "- *\"Compare the optimized scenario against the baseline.\"*"
+                )
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                st.rerun()
+            else:
+                has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+
+                badge_html = f'<span class="intent-badge">{label}</span>'
+                if has_specifics:
+                    badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
+
+                nlp_scenario = params["scenario"]
+                # Keep dashboard selection stable while loading scenario-scoped NLP data.
+                selected_before_chat = st.session_state.selected_scenario
+                scoped = _load_all_data_cached(nlp_scenario)
+                st.session_state.selected_scenario = selected_before_chat
+
+                # Most intents need a single scenario payload for correct totals/costs.
+                scenario_payload = scoped.get("scenario", {})
+                if intent in ("scenario_summary", "impact_analysis"):
+                    scenario_payload = scoped.get("scenario_summary_all", {})
 
             # Extract list parameters (limit, sort_by, order)
             from nlp.intent_classifier import extract_list_parameters
@@ -1477,6 +1939,7 @@ with tab1:
                     # row may use keys like product_id, from_store, to_store, store_id
                     try:
                         prod = str(row.get("product_id", ""))
+
                         if pids and prod not in pids:
                             return False
                         if sids:
@@ -1590,3 +2053,13 @@ with tab1:
 
             st.session_state.messages.append({"role": "assistant", "content": full_display})
             st.rerun()
+
+    # Simple auto-scroll script - ONLY scrolls the container
+    st.markdown("""
+    <script>
+        const messagesArea = document.getElementById('messagesArea');
+        if (messagesArea) {
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+    </script>
+    """, unsafe_allow_html=True)

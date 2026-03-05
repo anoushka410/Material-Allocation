@@ -312,6 +312,14 @@ def extract_parameters(user_message: str) -> dict:
     return StructuredParameterExtractor.extract(user_message)
 
 
+def extract_list_parameters(user_message: str) -> dict:
+    """Extract list parameters (limit, sort, filter, etc.) from user input.
+
+    Alias for extract_parameters for backward compatibility.
+    """
+    return extract_parameters(user_message)
+
+
 def classify_intent(user_message: str) -> str:
     lower = user_message.strip().lower()
     if lower in _GREETING_KEYWORDS or any(lower.startswith(g) for g in _GREETING_KEYWORDS):

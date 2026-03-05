@@ -1116,46 +1116,39 @@ with tab5:
             if col in fm5_df.columns:
                 fm5_df[col] = pd.to_numeric(fm5_df[col], errors="coerce")
 
-        @st.cache_data(show_spinner=False)
-        def _build_drift_data(_fm_df_json, _bw, _aw, _thresh):
-            """Build drift detector from simulated rolling observations, return serializable results."""
-            import numpy as np
-            fm_df = pd.read_json(_fm_df_json)
-            detector = ForecastDriftDetector(
-                baseline_window=_bw, alert_window=_aw, mae_threshold=_thresh
-            )
-            rng = np.random.default_rng(42)
-            for _, row in fm_df.iterrows():
-                sid = row.get("store_id")
-                pid = row.get("product_id")
-                mae = row.get("MAE", 1.0)
-                if not mae or np.isnan(mae):
-                    continue
-                n_obs = max(_bw + _aw + 5, 50)
-                for i in range(n_obs):
-                    noise_scale = mae * (2.5 if i >= n_obs - _aw else 0.8)
-                    err = float(rng.normal(0, noise_scale))
-                    detector.add_observation(sid, pid, f"day_{i}", 10.0 + err, 10.0)
-            return detector.get_alerts_df(), detector.summary()
-
-        alerts_df, summary_df = _build_drift_data(
-            fm5_df.to_json(),
-            baseline_win, alert_win, mae_thresh,
+        # Build drift detector with current slider parameters (no caching for full interactivity)
+        detector = ForecastDriftDetector(
+            baseline_window=baseline_win, alert_window=alert_win, mae_threshold=mae_thresh
         )
+        rng = np.random.default_rng(42)
+        for _, row in fm5_df.iterrows():
+            sid = row.get("store_id")
+            pid = row.get("product_id")
+            mae = row.get("MAE", 1.0)
+            if not mae or np.isnan(mae):
+                continue
+            n_obs = max(baseline_win + alert_win + 5, 50)
+            for i in range(n_obs):
+                # More realistic noise: baseline 0.8x, recent 1.8x (not 2.5x)
+                noise_scale = mae * (1.8 if i >= n_obs - alert_win else 0.8)
+                err = float(rng.normal(0, noise_scale))
+                detector.add_observation(sid, pid, f"day_{i}", 10.0 + err, 10.0)
+
+        alerts_df = detector.get_alerts_df()
+        summary_df = detector.summary()
 
         # Executive KPIs
         monitored_pairs = len(summary_df)
         total_alerts = len(alerts_df)
-        sw_alerts = int((alerts_df["method"] == "sliding_window").sum()) if total_alerts else 0
-        cusum_alerts = int((alerts_df["method"] == "cusum").sum()) if total_alerts else 0
+        # Alert rate: % of pairs with at least one drift alert (0-100%)
+        alert_rate = (total_alerts / monitored_pairs * 100) if monitored_pairs else 0.0
 
         mk1, mk2, mk3, mk4, mk5 = st.columns(5)
         mk1.metric("Monitored Pairs", monitored_pairs)
         mk2.metric("Total Alerts", total_alerts)
-        mk3.metric("Sliding-Window", sw_alerts)
-        mk4.metric("CUSUM", cusum_alerts)
-        alert_rate = (total_alerts / monitored_pairs) if monitored_pairs else 0.0
-        mk5.metric("Alert Rate", f"{alert_rate:.1%}")
+        mk3.metric("Sliding-Window", int((alerts_df["method"] == "sliding_window").sum()) if total_alerts else 0)
+        mk4.metric("CUSUM", int((alerts_df["method"] == "cusum").sum()) if total_alerts else 0)
+        mk5.metric("Alert Rate (%)", f"{alert_rate:.1f}%")
 
         st.markdown("---")
 

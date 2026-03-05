@@ -201,16 +201,28 @@ class ForecastDriftDetector:
         return None
 
     def get_alerts(self) -> list[DriftAlert]:
-        """Run all detectors and return a list of DriftAlert objects."""
-        alerts = []
+        """
+        Run all detectors and return a list of DriftAlert objects.
+
+        For each (store, product) pair, reports the BEST alert only (highest ratio).
+        This ensures each pair appears at most once, preventing double-counting.
+        """
+        alerts_by_key = {}
         for key, obs in self._obs.items():
             a1 = self._check_sliding_window(key, obs)
-            if a1:
-                alerts.append(a1)
             a2 = self._check_cusum(key, obs)
-            if a2:
-                alerts.append(a2)
-        return alerts
+
+            # Keep the alert with highest threshold_ratio (most severe)
+            best_alert = None
+            if a1 and a2:
+                best_alert = a1 if a1.threshold_ratio >= a2.threshold_ratio else a2
+            else:
+                best_alert = a1 or a2
+
+            if best_alert:
+                alerts_by_key[key] = best_alert
+
+        return list(alerts_by_key.values())
 
     def get_alerts_df(self) -> pd.DataFrame:
         """Return alerts as a DataFrame."""

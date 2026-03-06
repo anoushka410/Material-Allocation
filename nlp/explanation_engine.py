@@ -21,6 +21,8 @@ from typing import Optional
 
 DEFAULT_SCENARIO = "base_case_standard_conditions"
 
+# Default scenario to compare against when the user does not specify a second scenario.
+DEFAULT_COMPARISON_SCENARIO = "risk_aware_high_disruption"
 # Mapping from lowercase user query keywords → canonical scenario identifier.
 # Checked in order; first match wins.
 SCENARIO_KEYWORD_MAP: list[tuple[list[str], str]] = [
@@ -885,8 +887,11 @@ def explain_scenario_comparison(data: dict, scenario_b: str) -> str:
 
     try:
         data_b = load_json_data(scenario_b)
-    except (FileNotFoundError, OSError) as exc:
-        return f"Could not load scenario '{scenario_b}': {exc}"
+    except (FileNotFoundError, OSError):
+        return (
+            f"Could not load scenario data for '{scenario_b}'. "
+            "Please verify the scenario name and try again."
+        )
 
     summary_b = data_b.get("scenario", {})
 
@@ -933,8 +938,8 @@ def build_explanation(intent: str, data: dict, params: dict = None) -> str:
     if intent == "top_manufacturing_items":
         return explain_top_manufacturing(data, limit=limit)
     if intent == "scenario_comparison":
-        # Extract the second scenario from params; default to a different well-known one
-        second_scenario = (params or {}).get("scenario_b", "risk_aware_high_disruption")
+        # Extract the second scenario from params; fall back to the module-level default
+        second_scenario = (params or {}).get("scenario_b", DEFAULT_COMPARISON_SCENARIO)
         return explain_scenario_comparison(data, second_scenario)
     # ── Legacy intents ────────────────────────────────────────────────────
     if intent == "list_entities":
@@ -1055,8 +1060,8 @@ def handle_user_query(query: str) -> str:
     # ── 4. Load JSON data ─────────────────────────────────────────────────
     try:
         data = load_json_data(scenario)
-    except (FileNotFoundError, OSError) as exc:
-        return f"Error loading optimization data: {exc}"
+    except (FileNotFoundError, OSError):
+        return "Unable to load optimization data. Please contact support if this issue persists."
 
     # ── 5. Build deterministic explanation ────────────────────────────────
     raw_explanation = build_explanation(intent, data, params)

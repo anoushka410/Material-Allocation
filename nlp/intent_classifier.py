@@ -98,10 +98,8 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Return ONLY the label. No punctuation, no explanation.\n"
     "- If ambiguous between two intents, prefer the more specific one.\n"
-    "- If the query mentions inventory levels, current stock, or final stock → inventory_status.\n"
     "- If the query asks to rank/sort transfers by cost → top_transfers_by_cost.\n"
     "- If the query asks to rank/sort transfers by quantity → top_transfers_by_quantity.\n"
-    "- If the query compares two scenarios → scenario_comparison.\n"
     "- If about costs/expenses, default to high_cost_actions or cost_breakdown."
 )
 

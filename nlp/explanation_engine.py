@@ -166,6 +166,34 @@ def _filter_by_scenario(records: list[dict], scenario: str) -> list[dict]:
     return [r for r in records if str(r.get("scenario")) == str(scenario)]
 
 
+# ── Manufacturing field accessors (shared across multiple explain_* functions) ──
+
+def _mfg_cost(m: dict) -> float:
+    """Extract manufacturing cost from either JSON format.
+
+    Handles:
+      - Old schema: ``cost_impact.manufacturing_cost``
+      - Current JSON output: top-level ``cost``
+    """
+    ci = m.get("cost_impact") or {}
+    if ci and ci.get("manufacturing_cost") is not None:
+        return float(ci["manufacturing_cost"])
+    return float(m.get("cost", 0))
+
+
+def _mfg_qty(m: dict) -> float:
+    """Extract manufacturing quantity from either JSON format.
+
+    Handles:
+      - Old schema: ``manufacture_quantity``
+      - Current JSON output: top-level ``quantity``
+    """
+    qty = m.get("manufacture_quantity")
+    if qty is None:
+        qty = m.get("quantity", 0)
+    return float(qty)
+
+
 def explain_transfer(data: dict, params: dict = None) -> str:
     """Generate a deterministic markdown explanation of transfer recommendations.
 
@@ -303,13 +331,8 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
 
     for idx, m in enumerate(actions, 1):
         product = m.get("product_id", "N/A")
-        # Support both JSON field name formats
-        qty = m.get("manufacture_quantity") if m.get("manufacture_quantity") is not None else m.get("quantity", 0)
-        # Cost: old schema uses cost_impact.manufacturing_cost; current JSON uses direct "cost"
-        ci = m.get("cost_impact") or {}
-        mfg_cost = ci.get("manufacturing_cost") if ci else None
-        if mfg_cost is None:
-            mfg_cost = m.get("cost", 0)
+        qty = _mfg_qty(m)
+        cost = _mfg_cost(m)
         reasons = m.get("reason_codes", [])
         m_scen = m.get("scenario")
 
@@ -317,16 +340,10 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
         if m_scen and scenario_label in ("all", "Unknown", "unknown"):
             title += f" *(Scenario: {m_scen})*"
         lines.append(title + "  ")
-        try:
-            lines.append(f"Quantity to Manufacture: **{float(qty):.2f} units**  ")
-        except Exception:
-            lines.append(f"Quantity to Manufacture: **{qty} units**  ")
+        lines.append(f"Quantity to Manufacture: **{qty:.2f} units**  ")
         reason_text = ", ".join(r.replace("_", " ").title() for r in reasons)
         lines.append(f"Reasons: {reason_text}  ")
-        try:
-            lines.append(f"Manufacturing Cost: ${float(mfg_cost):,.2f}  ")
-        except Exception:
-            lines.append(f"Manufacturing Cost: ${mfg_cost}  ")
+        lines.append(f"Manufacturing Cost: ${cost:,.2f}  ")
         lines.append("")
 
     return "\n".join(lines).rstrip()
@@ -509,29 +526,16 @@ def explain_top_transfers(data: dict, limit: int = 10) -> str:
 def explain_top_manufacturing(data: dict, limit: int = 10) -> str:
     """Return top N manufacturing actions ranked by cost.
 
-    Handles both JSON field name formats:
+    Uses the module-level ``_mfg_cost`` and ``_mfg_qty`` helpers to handle
+    both JSON field name formats:
       - Old schema: ``manufacture_quantity`` / ``cost_impact.manufacturing_cost``
       - Current JSON: ``quantity`` / ``cost``
     """
     manufacturing = data.get("manufacturing", {}).get("manufacturing_actions", [])
     scenario = data.get("manufacturing", {}).get("scenario", "Unknown")
 
-    def _get_mfg_cost(m: dict) -> float:
-        """Extract manufacturing cost from either JSON format."""
-        ci = m.get("cost_impact") or {}
-        if ci and ci.get("manufacturing_cost") is not None:
-            return float(ci["manufacturing_cost"])
-        return float(m.get("cost", 0))
-
-    def _get_mfg_qty(m: dict) -> float:
-        """Extract manufacturing quantity from either JSON format."""
-        qty = m.get("manufacture_quantity")
-        if qty is None:
-            qty = m.get("quantity", 0)
-        return float(qty)
-
     # Sort by manufacturing cost (all values come from JSON)
-    sorted_mfg = sorted(manufacturing, key=_get_mfg_cost, reverse=True)[:limit]
+    sorted_mfg = sorted(manufacturing, key=_mfg_cost, reverse=True)[:limit]
 
     if not sorted_mfg:
         return "No manufacturing actions found."
@@ -546,8 +550,8 @@ def explain_top_manufacturing(data: dict, limit: int = 10) -> str:
 
     for idx, m in enumerate(sorted_mfg, 1):
         product = m.get("product_id", "N/A")
-        qty = _get_mfg_qty(m)
-        cost = _get_mfg_cost(m)
+        qty = _mfg_qty(m)
+        cost = _mfg_cost(m)
         lines.append(f"| {idx} | {product} | {qty:.2f} units | ${cost:,.2f} |")
 
     return "\n".join(lines)
@@ -588,22 +592,6 @@ def explain_urgent_transfers(data: dict) -> str:
         lines.append(f"Store {dest}: {len(transfers_to_dest)} transfers, {total_qty:.2f} units, ${total_cost:.2f}")
 
     return "\n".join(lines)
-
-
-def _mfg_cost(m: dict) -> float:
-    """Extract manufacturing cost from either JSON format (internal helper)."""
-    ci = m.get("cost_impact") or {}
-    if ci and ci.get("manufacturing_cost") is not None:
-        return float(ci["manufacturing_cost"])
-    return float(m.get("cost", 0))
-
-
-def _mfg_qty(m: dict) -> float:
-    """Extract manufacturing quantity from either JSON format (internal helper)."""
-    qty = m.get("manufacture_quantity")
-    if qty is None:
-        qty = m.get("quantity", 0)
-    return float(qty)
 
 
 def explain_high_cost_actions(data: dict, limit: int = 15) -> str:

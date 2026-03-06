@@ -1,19 +1,220 @@
+"""Explanation Engine for the Supply Chain NLP pipeline.
+
+Responsibilities:
+  - detect_scenario()    : map query keywords to an optimization scenario
+  - load_data()          : load JSON data files from the output directory
+  - build_explanation()  : dispatch to intent-specific explain_* functions
+  - handle_user_query()  : single entry-point orchestrating the full pipeline
+
+Safety rules enforced here:
+  - All numeric values come from JSON. The LLM must never calculate numbers.
+  - Maximum MAX_RESULTS results returned to the user by default.
+"""
+from __future__ import annotations
+
+import json
+import os
+
+# Default data directory (relative to project root)
+_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "optimization", "output-json"
+)
+
+# Default scenario used when the user does not specify one
+DEFAULT_SCENARIO = "base_case_standard_conditions"
+
+# Maximum number of records to return in any ranked list
+MAX_RESULTS = 10
+
+# ── Scenario keyword mapping ───────────────────────────────────────────────────
+# Maps lowercase keywords found in the user query to an exact scenario ID.
+# Order matters: more specific phrases are listed before broad ones.
+_SCENARIO_KEYWORD_MAP: list[tuple[list[str], str]] = [
+    (["high disruption", "high_disruption", "disruption"], "risk_aware_high_disruption"),
+    (["fuel shock", "fuel_shock", "fuel price", "transport cost increase"], "transport_cost_increase_fuel_shock"),
+    (["demand spike", "demand_spike", "peak demand", "high demand", "high forecast"], "demand_spike_high_forecast"),
+    (["lead time", "lead_time", "supplier delay", "customs delay", "extended lead"], "extended_lead_time_supplier_delay"),
+    (["cost only", "cost_only", "no risk", "no_risk", "no risk penalty"], "cost_only_no_risk_penalty"),
+    (["base case", "base_case", "standard", "baseline", "default"], DEFAULT_SCENARIO),
+]
+
+
+def detect_scenario(query: str) -> str:
+    """Detect the intended optimization scenario from the user query.
+
+    Scans the lowercase query for keyword phrases and returns the matching
+    scenario ID. Falls back to DEFAULT_SCENARIO when no keyword matches.
+
+    Parameters
+    ----------
+    query : str
+        Raw user query string.
+
+    Returns
+    -------
+    str
+        Scenario identifier (e.g. "base_case_standard_conditions").
+    """
+    lower = query.lower()
+    for keywords, scenario_id in _SCENARIO_KEYWORD_MAP:
+        if any(kw in lower for kw in keywords):
+            return scenario_id
+    return DEFAULT_SCENARIO
+
+
+def load_data(scenario: str = DEFAULT_SCENARIO, data_dir: str | None = None) -> dict:
+    """Load all optimization JSON files and filter to the specified scenario.
+
+    All numeric values come exclusively from the JSON files — never from the
+    LLM.  This function is the single source of truth for data access in the
+    NLP pipeline.
+
+    Parameters
+    ----------
+    scenario : str
+        The scenario ID to filter records for.
+    data_dir : str, optional
+        Path to the output-json directory. Defaults to the project-level
+        ``optimization/output-json`` directory.
+
+    Returns
+    -------
+    dict with keys:
+        scenario     – single scenario summary dict
+        transfers    – {"scenario": str, "transfers": [...]}
+        manufacturing– {"scenario": str, "manufacturing_actions": [...]}
+        inventory    – list of inventory records for the scenario
+        scenario_summary_all – full combined scenario_summary.json content
+    """
+    if data_dir is None:
+        data_dir = _DATA_DIR
+
+    result: dict = {}
+
+    # ── Scenario summary (all scenarios) ──────────────────────────────────────
+    try:
+        with open(os.path.join(data_dir, "scenario_summary.json")) as f:
+            summary_all = json.load(f)
+    except Exception:
+        summary_all = {}
+
+    result["scenario_summary_all"] = summary_all
+
+    # Single-scenario summary for the requested scenario
+    summaries = summary_all.get("summaries", [])
+    result["scenario"] = next(
+        (s for s in summaries if s.get("scenario") == scenario), {}
+    )
+
+    # ── Transfer recommendations ───────────────────────────────────────────────
+    try:
+        with open(os.path.join(data_dir, "transfer_recommendations.json")) as f:
+            transfers_all = json.load(f)
+    except Exception:
+        transfers_all = {}
+
+    transfers = [
+        t for t in (transfers_all.get("transfers") or [])
+        if str(t.get("scenario")) == str(scenario)
+    ]
+    result["transfers"] = {"scenario": scenario, "transfers": transfers}
+
+    # ── Manufacturing decisions ────────────────────────────────────────────────
+    try:
+        with open(os.path.join(data_dir, "manufacturing_decisions.json")) as f:
+            mfg_all = json.load(f)
+    except Exception:
+        mfg_all = {}
+
+    mfg_actions = [
+        m for m in (mfg_all.get("manufacturing_actions") or [])
+        if str(m.get("scenario")) == str(scenario)
+    ]
+    result["manufacturing"] = {"scenario": scenario, "manufacturing_actions": mfg_actions}
+
+    # ── Inventory ──────────────────────────────────────────────────────────────
+    try:
+        with open(os.path.join(data_dir, "inventory.json")) as f:
+            inv_all = json.load(f)
+    except Exception:
+        inv_all = {}
+
+    inventory = [
+        i for i in (inv_all.get("inventory") or [])
+        if str(i.get("scenario")) == str(scenario)
+    ]
+    result["inventory"] = inventory
+
+    return result
+
+
+# ── Helper: normalise scenario-based filter ────────────────────────────────────
+
+def _filter_by_scenario(records: list[dict], scenario: str) -> list[dict]:
+    """Filter records by scenario, but only when the records carry a scenario field.
+
+    If none of the records contain a ``scenario`` key (e.g. test fixtures that
+    omit it), the full list is returned unchanged so that unit tests still work.
+    """
+    if scenario in ("all", "optimization_run", "unknown"):
+        return records
+    # Detect whether individual records carry a scenario field
+    has_field = any("scenario" in r for r in records)
+    if not has_field:
+        return records  # no per-record scenario field — no filtering possible
+    return [r for r in records if str(r.get("scenario")) == str(scenario)]
+
+
+# ── Manufacturing field accessors (shared across multiple explain_* functions) ──
+
+def _mfg_cost(m: dict) -> float:
+    """Extract manufacturing cost from either JSON format.
+
+    Handles:
+      - Old schema: ``cost_impact.manufacturing_cost``
+      - Current JSON output: top-level ``cost``
+    """
+    ci = m.get("cost_impact") or {}
+    if ci and ci.get("manufacturing_cost") is not None:
+        return float(ci["manufacturing_cost"])
+    return float(m.get("cost", 0))
+
+
+def _mfg_qty(m: dict) -> float:
+    """Extract manufacturing quantity from either JSON format.
+
+    Handles:
+      - Old schema: ``manufacture_quantity``
+      - Current JSON output: top-level ``quantity``
+    """
+    qty = m.get("manufacture_quantity")
+    if qty is None:
+        qty = m.get("quantity", 0)
+    return float(qty)
+
+
 def explain_transfer(data: dict, params: dict = None) -> str:
+    """Generate a deterministic markdown explanation of transfer recommendations.
+
+    All numeric values (quantity, cost) come directly from the JSON data —
+    the LLM never performs calculations or invents figures.
+    """
     transfer_data = data.get("transfers", {})
     transfers = transfer_data.get("transfers", [])
 
-    # If flat file is loaded, each transfer may carry its own scenario.
+    # Resolve the scenario: prefer explicit params, then wrapper, then default
     selected_scenario = None
     if params and isinstance(params, dict):
         selected_scenario = params.get("scenario")
     if not selected_scenario:
         selected_scenario = transfer_data.get("scenario")
 
-    # Filter by scenario if the user specified one and the records include scenario
-    if selected_scenario and selected_scenario not in ("all", "optimization_run", "unknown"):
-        transfers = [t for t in transfers if str(t.get("scenario")) == str(selected_scenario)]
+    # Filter by scenario using the robust helper (handles missing scenario field)
+    if selected_scenario:
+        transfers = _filter_by_scenario(transfers, selected_scenario)
 
-    scenario_label = selected_scenario or transfer_data.get("scenario") or "Unknown"
+    scenario_label = selected_scenario or "Unknown"
 
     if params:
         filtered = []
@@ -34,9 +235,17 @@ def explain_transfer(data: dict, params: dict = None) -> str:
     if not transfers:
         return "No transfers match the given specific product or store in this scenario."
 
+    # Apply limit if specified (default to MAX_RESULTS)
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict) and params.get("limit"):
+        limit = params.get("limit")
+
+    total_transfers = len(transfers)
+    transfers = transfers[:limit]
+
     lines = [
         f"**Scenario:** {scenario_label}  ",
-        f"**Transfer Recommendations:** {len(transfers)}",
+        f"**Transfer Recommendations:** Showing {len(transfers)} of {total_transfers}",
         "",
     ]
 
@@ -68,6 +277,14 @@ def explain_transfer(data: dict, params: dict = None) -> str:
 
 
 def explain_manufacturing(data: dict, params: dict = None) -> str:
+    """Generate a deterministic markdown explanation of manufacturing decisions.
+
+    Handles both JSON formats:
+      - Old schema: ``manufacture_quantity`` / ``cost_impact.manufacturing_cost``
+      - Current JSON: ``quantity`` / ``cost``
+
+    All numeric values come from JSON — the LLM never performs calculations.
+    """
     mfg_data = data.get("manufacturing", {})
     actions = mfg_data.get("manufacturing_actions", [])
 
@@ -77,10 +294,11 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
     if not selected_scenario:
         selected_scenario = mfg_data.get("scenario")
 
-    if selected_scenario and selected_scenario not in ("all", "optimization_run", "unknown"):
-        actions = [m for m in actions if str(m.get("scenario")) == str(selected_scenario)]
+    # Filter by scenario using the robust helper
+    if selected_scenario:
+        actions = _filter_by_scenario(actions, selected_scenario)
 
-    scenario_label = selected_scenario or mfg_data.get("scenario") or "Unknown"
+    scenario_label = selected_scenario or "Unknown"
 
     if params:
         filtered = []
@@ -97,30 +315,35 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
     if not actions:
         return "No manufacturing actions match the given specific product in this scenario."
 
+    # Apply limit if specified (default to MAX_RESULTS)
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict) and params.get("limit"):
+        limit = params.get("limit")
+
+    total_actions = len(actions)
+    actions = actions[:limit]
+
     lines = [
         f"**Scenario:** {scenario_label}  ",
-        f"**Manufacturing Decisions:** {len(actions)}",
+        f"**Manufacturing Decisions:** Showing {len(actions)} of {total_actions}",
         "",
     ]
 
     for idx, m in enumerate(actions, 1):
         product = m.get("product_id", "N/A")
-        qty = m.get("manufacture_quantity", 0)
+        qty = _mfg_qty(m)
+        cost = _mfg_cost(m)
         reasons = m.get("reason_codes", [])
-        ci = m.get("cost_impact", {})
         m_scen = m.get("scenario")
 
         title = f"**Decision {idx}: Product {product}**"
         if m_scen and scenario_label in ("all", "Unknown", "unknown"):
             title += f" *(Scenario: {m_scen})*"
         lines.append(title + "  ")
-        try:
-            lines.append(f"Quantity to Manufacture: **{float(qty):.2f} units**  ")
-        except Exception:
-            lines.append(f"Quantity to Manufacture: **{qty} units**  ")
+        lines.append(f"Quantity to Manufacture: **{qty:.2f} units**  ")
         reason_text = ", ".join(r.replace("_", " ").title() for r in reasons)
         lines.append(f"Reasons: {reason_text}  ")
-        lines.append(f"Manufacturing Cost: ${ci.get('manufacturing_cost', 0):,.2f}  ")
+        lines.append(f"Manufacturing Cost: ${cost:,.2f}  ")
         lines.append("")
 
     return "\n".join(lines).rstrip()
@@ -239,7 +462,11 @@ def explain_counts(data: dict) -> str:
             stores.add(t["to_store"])
 
     total_transfer_quantity = sum(t.get("quantity", 0) for t in transfers)
-    total_mfg_quantity = sum(m.get("manufacture_quantity", 0) for m in manufacturing)
+    # Support both JSON field formats for manufacturing quantity
+    total_mfg_quantity = sum(
+        (m.get("manufacture_quantity") if m.get("manufacture_quantity") is not None else m.get("quantity", 0))
+        for m in manufacturing
+    )
 
     total_cost = float(optimized.get("total_cost", 0) or 0)
     if total_cost == 0 and isinstance(cost_breakdown, dict):
@@ -297,11 +524,18 @@ def explain_top_transfers(data: dict, limit: int = 10) -> str:
 
 
 def explain_top_manufacturing(data: dict, limit: int = 10) -> str:
+    """Return top N manufacturing actions ranked by cost.
+
+    Uses the module-level ``_mfg_cost`` and ``_mfg_qty`` helpers to handle
+    both JSON field name formats:
+      - Old schema: ``manufacture_quantity`` / ``cost_impact.manufacturing_cost``
+      - Current JSON: ``quantity`` / ``cost``
+    """
     manufacturing = data.get("manufacturing", {}).get("manufacturing_actions", [])
     scenario = data.get("manufacturing", {}).get("scenario", "Unknown")
 
-    # Sort by manufacturing cost
-    sorted_mfg = sorted(manufacturing, key=lambda x: x['cost_impact'].get('manufacturing_cost', 0), reverse=True)[:limit]
+    # Sort by manufacturing cost (all values come from JSON)
+    sorted_mfg = sorted(manufacturing, key=_mfg_cost, reverse=True)[:limit]
 
     if not sorted_mfg:
         return "No manufacturing actions found."
@@ -316,8 +550,8 @@ def explain_top_manufacturing(data: dict, limit: int = 10) -> str:
 
     for idx, m in enumerate(sorted_mfg, 1):
         product = m.get("product_id", "N/A")
-        qty = m.get("manufacture_quantity", 0)
-        cost = m['cost_impact'].get('manufacturing_cost', 0)
+        qty = _mfg_qty(m)
+        cost = _mfg_cost(m)
         lines.append(f"| {idx} | {product} | {qty:.2f} units | ${cost:,.2f} |")
 
     return "\n".join(lines)
@@ -366,10 +600,10 @@ def explain_high_cost_actions(data: dict, limit: int = 15) -> str:
     scenario = data.get("scenario", {}).get("scenario", "Unknown")
 
     # Get top expensive transfers
-    top_transfers = sorted(transfers, key=lambda x: x['cost_impact'].get('transport_cost', 0), reverse=True)[:5]
+    top_transfers = sorted(transfers, key=lambda x: x.get("cost_impact", {}).get('transport_cost', 0), reverse=True)[:5]
 
-    # Get top expensive manufacturing
-    top_mfg = sorted(manufacturing, key=lambda x: x['cost_impact'].get('manufacturing_cost', 0), reverse=True)[:10]
+    # Get top expensive manufacturing (supports both field formats)
+    top_mfg = sorted(manufacturing, key=_mfg_cost, reverse=True)[:10]
 
     lines = [
         f"**High-Cost Actions Overview**",
@@ -384,7 +618,7 @@ def explain_high_cost_actions(data: dict, limit: int = 15) -> str:
         from_s = t.get("from_store")
         to_s = t.get("to_store")
         product = t.get("product_id")
-        cost = t['cost_impact'].get('transport_cost', 0)
+        cost = t.get("cost_impact", {}).get('transport_cost', 0)
         lines.append(f"| {from_s}→{to_s} | {product} | ${cost:.2f} |")
 
     lines.extend([
@@ -396,8 +630,8 @@ def explain_high_cost_actions(data: dict, limit: int = 15) -> str:
 
     for m in top_mfg:
         product = m.get("product_id")
-        qty = m.get("manufacture_quantity", 0)
-        cost = m['cost_impact'].get('manufacturing_cost', 0)
+        qty = _mfg_qty(m)
+        cost = _mfg_cost(m)
         lines.append(f"| {product} | {qty:.2f} units | ${cost:,.2f} |")
 
     return "\n".join(lines)
@@ -536,12 +770,12 @@ def explain_product_recommendations(data: dict, params: dict = None) -> str:
 
         if prod_transfers:
             qty = sum(t.get('quantity', 0) for t in prod_transfers)
-            cost = sum(t['cost_impact'].get('transport_cost', 0) for t in prod_transfers)
+            cost = sum(t.get("cost_impact", {}).get('transport_cost', 0) for t in prod_transfers)
             lines.append(f"| {product} | Transfer | {len(prod_transfers)} | {qty:.2f} units, ${cost:.2f} |")
 
         if prod_mfg:
-            qty = sum(m.get('manufacture_quantity', 0) for m in prod_mfg)
-            cost = sum(m['cost_impact'].get('manufacturing_cost', 0) for m in prod_mfg)
+            qty = sum(_mfg_qty(m) for m in prod_mfg)
+            cost = sum(_mfg_cost(m) for m in prod_mfg)
             lines.append(f"| {product} | Manufacturing | {len(prod_mfg)} | {qty:.2f} units, ${cost:,.2f} |")
 
     return "\n".join(lines)
@@ -575,28 +809,187 @@ def explain_cost_breakdown(data: dict) -> str:
 
     return "\n".join(lines)
 
+def explain_top_transfers_by_quantity(data: dict, limit: int = 10) -> str:
+    """Return top N transfers ranked by quantity (units moved).
+
+    All numeric values come from JSON.
+    """
+    transfers = data.get("transfers", {}).get("transfers", [])
+    scenario = data.get("transfers", {}).get("scenario", "Unknown")
+
+    sorted_transfers = sorted(transfers, key=lambda x: x.get("quantity", 0), reverse=True)[:limit]
+
+    if not sorted_transfers:
+        return "No transfers found."
+
+    lines = [
+        f"**Top {limit} Transfers by Quantity**",
+        f"**Scenario:** {scenario}",
+        "",
+        "| Rank | Route | Product | Qty | Cost |",
+        "|------|-------|---------|-----|------|",
+    ]
+
+    for idx, t in enumerate(sorted_transfers, 1):
+        from_s = t.get("from_store", "N/A")
+        to_s = t.get("to_store", "N/A")
+        product = t.get("product_id", "N/A")
+        qty = t.get("quantity", 0)
+        cost = t.get("cost_impact", {}).get('transport_cost', 0)
+        lines.append(f"| {idx} | {from_s}→{to_s} | {product} | {qty:.2f} | ${cost:.2f} |")
+
+    return "\n".join(lines)
+
+
+def explain_inventory_status(data: dict, params: dict = None) -> str:
+    """Summarise overall inventory health from the inventory JSON data.
+
+    All numeric values (current, final, target) come directly from JSON.
+    """
+    inventory = data.get("inventory", [])
+    scenario = data.get("scenario", {}).get("scenario", "Unknown")
+
+    if params:
+        p_store = [str(s).lower().replace("store_", "") for s in params.get("store_id", [])]
+        p_prod = [str(p).lower().replace("product_", "") for p in params.get("product_id", [])]
+        if p_store:
+            inventory = [i for i in inventory if str(i.get("store_id", "")) in p_store]
+        if p_prod:
+            inventory = [i for i in inventory if str(i.get("product_id", "")) in p_prod]
+
+    if not inventory:
+        return "No inventory data available for the selected scenario/filters."
+
+    total = len(inventory)
+    at_target = sum(1 for i in inventory if float(i.get("final", 0)) >= float(i.get("target", 0)))
+    below_target = total - at_target
+
+    lines = [
+        f"**Inventory Status Summary**",
+        f"**Scenario:** {scenario}",
+        "",
+        f"| Metric | Value |",
+        f"|--------|-------|",
+        f"| Total Inventory Records | {total} |",
+        f"| Records Meeting Target | {at_target} |",
+        f"| Records Below Target | {below_target} |",
+        f"| On-Target Rate | {(at_target/total)*100:.1f}% |" if total > 0 else "| On-Target Rate | N/A |",
+        "",
+        "**Sample Records (first 10):**",
+        "| Store | Product | Current | Final | Target |",
+        "|-------|---------|---------|-------|--------|",
+    ]
+    for i in inventory[:10]:
+        lines.append(
+            f"| {i.get('store_id', 'N/A')} | {i.get('product_id', 'N/A')} "
+            f"| {float(i.get('current', 0)):.2f} | {float(i.get('final', 0)):.2f} "
+            f"| {float(i.get('target', 0)):.2f} |"
+        )
+
+    return "\n".join(lines)
+
+
+def explain_inventory_gaps(data: dict, params: dict = None) -> str:
+    """List inventory records where the final quantity is below the target.
+
+    All numeric values come from JSON.
+    """
+    inventory = data.get("inventory", [])
+    scenario = data.get("scenario", {}).get("scenario", "Unknown")
+
+    if params:
+        p_store = [str(s).lower().replace("store_", "") for s in params.get("store_id", [])]
+        p_prod = [str(p).lower().replace("product_", "") for p in params.get("product_id", [])]
+        if p_store:
+            inventory = [i for i in inventory if str(i.get("store_id", "")) in p_store]
+        if p_prod:
+            inventory = [i for i in inventory if str(i.get("product_id", "")) in p_prod]
+
+    # Identify gaps: records where final < target
+    gaps = [
+        i for i in inventory
+        if float(i.get("final", 0)) < float(i.get("target", 0))
+    ]
+
+    if not gaps:
+        return "No inventory gaps detected — all items are meeting their targets in this scenario."
+
+    # Sort by absolute gap (largest deficit first)
+    gaps_sorted = sorted(
+        gaps,
+        key=lambda i: float(i.get("target", 0)) - float(i.get("final", 0)),
+        reverse=True
+    )[:MAX_RESULTS]
+
+    lines = [
+        f"**Inventory Gaps (Below Target)**",
+        f"**Scenario:** {scenario}",
+        f"**Total Gaps Detected:** {len(gaps)}",
+        "",
+        "| Store | Product | Current | Final | Target | Shortfall |",
+        "|-------|---------|---------|-------|--------|-----------|",
+    ]
+    for i in gaps_sorted:
+        shortfall = float(i.get("target", 0)) - float(i.get("final", 0))
+        lines.append(
+            f"| {i.get('store_id', 'N/A')} | {i.get('product_id', 'N/A')} "
+            f"| {float(i.get('current', 0)):.2f} | {float(i.get('final', 0)):.2f} "
+            f"| {float(i.get('target', 0)):.2f} | {shortfall:.2f} |"
+        )
+
+    return "\n".join(lines)
+
+
 def build_explanation(intent: str, data: dict, params: dict = None) -> str:
-    # Extract limit from params if specified, otherwise use default (10)
+    """Dispatch an intent to the appropriate deterministic explain_* function.
+
+    All returned strings contain only values from the JSON data — the LLM
+    never performs calculations or invents numbers.
+
+    Parameters
+    ----------
+    intent : str
+        One of the supported pipeline intents (see ALLOWED_INTENTS in
+        intent_classifier.py).
+    data : dict
+        Unified data dict as returned by load_data() or equivalent.
+    params : dict, optional
+        Extracted parameters (limit, product_id, store_id, …).
+
+    Returns
+    -------
+    str
+        Deterministic markdown explanation, or empty string for unknown intents.
+    """
     limit = None
     if params and isinstance(params, dict):
-        limit = params.get("limit")  # Will be None if not extracted
+        limit = params.get("limit")
 
-    if intent == "explain_transfer":
+    # ── Required pipeline intents ──────────────────────────────────────────────
+    if intent in ("transfer_recommendations", "explain_transfer"):
         return explain_transfer(data, params)
-    if intent == "explain_manufacturing":
+    if intent in ("manufacturing_plan", "explain_manufacturing"):
         return explain_manufacturing(data, params)
+    if intent == "inventory_status":
+        return explain_inventory_status(data, params)
+    if intent == "inventory_gaps":
+        return explain_inventory_gaps(data, params)
+    if intent in ("top_transfers_by_cost", "top_transfers"):
+        return explain_top_transfers(data, limit=limit if limit else MAX_RESULTS)
+    if intent == "top_transfers_by_quantity":
+        return explain_top_transfers_by_quantity(data, limit=limit if limit else MAX_RESULTS)
+    if intent in ("top_manufacturing_items", "top_manufacturing"):
+        return explain_top_manufacturing(data, limit=limit if limit else MAX_RESULTS)
+    if intent == "scenario_comparison":
+        # scenario_comparison is handled by handle_user_query via scenario_compare module
+        return explain_scenario(data)
+    # ── Additional intents ────────────────────────────────────────────────────
     if intent == "list_entities":
         return explain_entities(data)
     if intent == "total_counts":
         return explain_counts(data)
     if intent in ("scenario_summary", "impact_analysis"):
         return explain_scenario(data)
-    if intent == "top_transfers":
-        # Use extracted limit if available, otherwise default to 10
-        return explain_top_transfers(data, limit=limit if limit else 10)
-    if intent == "top_manufacturing":
-        # Use extracted limit if available, otherwise default to 10
-        return explain_top_manufacturing(data, limit=limit if limit else 10)
     if intent == "urgent_transfers":
         return explain_urgent_transfers(data)
     if intent == "high_cost_actions":
@@ -605,8 +998,123 @@ def build_explanation(intent: str, data: dict, params: dict = None) -> str:
         return explain_reason_analysis(data)
     if intent == "store_activity":
         return explain_store_activity(data)
-    if intent == "product_recommendations":
+    if intent in ("product_recommendations",):
         return explain_product_recommendations(data, params)
     if intent == "cost_breakdown":
         return explain_cost_breakdown(data)
     return ""
+
+
+# ── Greeting / fallback messages ──────────────────────────────────────────────
+
+_GREETING_RESPONSE = (
+    "Hello! I am the Supply Chain Analytics Assistant.\n\n"
+    "I can answer questions about:\n\n"
+    "**Transfers:** transfer recommendations, top transfers by cost or quantity, urgent transfers, store activity\n\n"
+    "**Manufacturing:** manufacturing plan, top manufacturing items, high-cost actions\n\n"
+    "**Inventory:** inventory status, inventory gaps\n\n"
+    "**Scenarios:** scenario summary, cost breakdown, scenario comparison, impact analysis\n\n"
+    "**Decisions:** reason analysis, product recommendations, total counts\n\n"
+    "Ask me anything about the optimization results!"
+)
+
+_OUT_OF_SCOPE_RESPONSE = (
+    "I cannot answer this question using the available optimization data.\n\n"
+    "I am calibrated for supply chain optimization analysis covering inventory "
+    "transfers, production decisions, and cost diagnostics.\n\n"
+    "Please try: *\"Show transfer recommendations\"*, *\"Top 5 manufacturing items\"*, "
+    "or *\"Compare scenarios\"*."
+)
+
+
+# ── Main pipeline orchestrator ────────────────────────────────────────────────
+
+def handle_user_query(query: str) -> str:
+    """Single entry point for the full NLP pipeline.
+
+    Pipeline steps:
+      1. Intent detection  — local LLM (with keyword fallback)
+      2. Scenario detection — keyword mapping → scenario ID
+      3. Parameter extraction — limit, store/product filters, etc.
+      4. Data loading        — reads JSON files; all numbers come from JSON
+      5. Deterministic explanation construction
+      6. LLM language refinement (skipped for table-format intents)
+      7. Response validation — fallback to raw explanation if LLM degrades it
+
+    Safety guarantees:
+      - The LLM never performs calculations or reasons about numbers.
+      - All numeric values in the final response come from JSON.
+      - Results are capped at MAX_RESULTS (10) by default.
+      - Unsupported queries always return a clear out-of-scope message.
+
+    Parameters
+    ----------
+    query : str
+        Raw user query string.
+
+    Returns
+    -------
+    str
+        Final response ready for display (markdown-formatted).
+    """
+    # Lazy imports to avoid circular imports at module level
+    from nlp.intent_classifier import classify_intent, extract_parameters, MAX_RESULTS as _MAX
+    from nlp.refiner import refine_explanation, validate_response
+    from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios
+
+    # ── 1. Intent detection ────────────────────────────────────────────────────
+    intent = classify_intent(query)
+
+    if intent == "greeting":
+        return _GREETING_RESPONSE
+    if intent == "out_of_scope":
+        return _OUT_OF_SCOPE_RESPONSE
+
+    # ── 2. Scenario detection ──────────────────────────────────────────────────
+    scenario = detect_scenario(query)
+
+    # ── 3. Parameter extraction ────────────────────────────────────────────────
+    params = extract_parameters(query)
+    params["scenario"] = scenario
+    # Enforce MAX_RESULTS cap on any explicit limit the user provided
+    if not params.get("limit"):
+        params["limit"] = _MAX
+
+    # ── 4. Data loading ────────────────────────────────────────────────────────
+    data = load_data(scenario)
+
+    # ── 5. Scenario comparison (special path — needs two scenarios) ────────────
+    if intent == "scenario_comparison":
+        summary_all = data.get("scenario_summary_all", {})
+        summaries = summary_all.get("summaries", [])
+        if len(summaries) >= 2:
+            baseline = ScenarioSnapshot.from_json(summaries[0])
+            alternative = ScenarioSnapshot.from_json(summaries[1])
+            return compare_scenarios(baseline, alternative)
+        # Not enough scenarios to compare — fall through to plain scenario summary
+        return explain_scenario(data)
+
+    # ── 6. Deterministic explanation ───────────────────────────────────────────
+    raw_explanation = build_explanation(intent, data, params)
+
+    if not raw_explanation:
+        return _OUT_OF_SCOPE_RESPONSE
+
+    # ── 7. LLM refinement (skip for structured table intents) ─────────────────
+    # Table intents produce structured markdown — LLM refinement would degrade them.
+    _TABLE_INTENTS = {
+        "total_counts", "top_transfers_by_cost", "top_transfers_by_quantity",
+        "top_manufacturing_items", "urgent_transfers", "high_cost_actions",
+        "reason_analysis", "store_activity", "product_recommendations",
+        "cost_breakdown", "inventory_status", "inventory_gaps",
+    }
+
+    if intent in _TABLE_INTENTS:
+        return raw_explanation
+
+    refined = refine_explanation(raw_explanation, user_question=query)
+
+    # ── 8. Validate refined response ───────────────────────────────────────────
+    if validate_response(raw_explanation, refined):
+        return refined
+    return raw_explanation

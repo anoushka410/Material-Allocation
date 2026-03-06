@@ -15,8 +15,9 @@ import zipfile
 import os
 
 from nlp.intent_classifier import classify_intent, extract_parameters
-from nlp.explanation_engine import build_explanation
+from nlp.explanation_engine import build_explanation, handle_user_query, detect_scenario
 from nlp.refiner import refine_explanation
+from nlp.llm_client import MODEL_NAME as LLM_MODEL_NAME
 from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios, sensitivity_analysis_text
 from optimization.stochastic import generate_scenarios, compute_cvar
 from optimization.scenarios import ScenarioRegistry
@@ -625,14 +626,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 INTENT_LABELS = {
-    "explain_transfer": "Transfer Details",
-    "explain_manufacturing": "Manufacturing Details",
+    # ── Required pipeline intents ──────────────────────────────────────────────
+    "transfer_recommendations": "Transfer Recommendations",
+    "manufacturing_plan": "Manufacturing Plan",
+    "inventory_status": "Inventory Health",
     "scenario_summary": "Scenario Summary",
+    "top_transfers_by_cost": "Top Transfers (Cost)",
+    "top_transfers_by_quantity": "Top Transfers (Qty)",
+    "top_manufacturing_items": "Top Manufacturing Items",
+    "scenario_comparison": "Scenario Comparison",
+    "out_of_scope": "Out of Scope",
+    # ── Additional intents ────────────────────────────────────────────────────
+    "greeting": "Greeting",
     "impact_analysis": "Impact Analysis",
     "list_entities": "Entity List",
     "total_counts": "Summary Metrics",
-    "top_transfers": "Top Transfers",
-    "top_manufacturing": "Top Manufacturing",
     "urgent_transfers": "Urgent Transfers",
     "high_cost_actions": "High-Cost Actions",
     "reason_analysis": "Decision Analysis",
@@ -640,8 +648,11 @@ INTENT_LABELS = {
     "product_recommendations": "Product Actions",
     "cost_breakdown": "Cost Breakdown",
     "inventory_gaps": "Inventory Gaps",
-    "inventory_status": "Inventory Health",
-    "out_of_scope": "Out of Scope",
+    # Backward-compatible aliases
+    "explain_transfer": "Transfer Recommendations",
+    "explain_manufacturing": "Manufacturing Plan",
+    "top_transfers": "Top Transfers (Cost)",
+    "top_manufacturing": "Top Manufacturing Items",
 }
 
 
@@ -711,7 +722,9 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.markdown('<div class="sidebar-title">Status</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title">LLM Status</div>', unsafe_allow_html=True)
+    # Display the configured model name so it's easy to see which model is active
+    st.caption(f"Model: **{LLM_MODEL_NAME}**")
 
     if "ollama_checked" not in st.session_state:
         # Check ollama on first load quietly
@@ -1818,238 +1831,40 @@ with tab1:
         if prompt := st.chat_input("Ask about transfers, manufacturing, or scenario metrics…"):
             st.session_state.messages.append({"role": "user", "content": prompt})
 
+            # ── Classify intent for badge display (lightweight, also used for
+            #    contextual follow-up logic) ─────────────────────────────────
             with st.spinner("Classifying intent…"):
                 intent = classify_intent(prompt)
 
             params = extract_parameters(prompt)
 
-            # ✅ Extract and merge list parameters (limit, sort_by, order)
-            from nlp.intent_classifier import extract_list_parameters
-            list_params = extract_list_parameters(prompt)
-            params.update(list_params)
-
-            params["scenario"] = _resolve_nlp_scenario(params)
-
             # Contextual fallback for follow-up questions
             if intent == "out_of_scope" and st.session_state.last_intent:
                 has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
-                if params["is_all"] or has_specifics:
+                if params.get("is_all") or has_specifics:
                     intent = st.session_state.last_intent
 
             if intent not in ("out_of_scope", "greeting"):
                 st.session_state.last_intent = intent
 
             label = INTENT_LABELS.get(intent, intent)
+            nlp_scenario = detect_scenario(prompt)
 
-            if intent == "greeting":
-                response = (
-                    "Hello. I am the Supply Chain Analytics Assistant.\n\n"
-                    "I can help you analyze optimization recommendations across multiple dimensions:\n\n"
-                    "**Overview & Summaries:**\n"
-                    "- *\"Provide a scenario summary\"* - Overall optimization results\n"
-                    "- *\"Show cost breakdown\"* - Detailed cost composition\n"
-                    "- *\"How many recommendations total\"* - Summary counts\n\n"
-                    "**Transfer Analysis:**\n"
-                    "- *\"Explain transfer recommendations\"* - Detailed transfer details\n"
-                    "- *\"Top transfers by cost\"* - Prioritized high-cost transfers\n"
-                    "- *\"Urgent transfers\"* - Transfers for stockout prevention\n"
-                    "- *\"Store activity\"* - Store involvement in transfers\n\n"
-                    "**Manufacturing Analysis:**\n"
-                    "- *\"Detail manufacturing decisions\"* - Production action specifics\n"
-                    "- *\"Top manufacturing by cost\"* - Highest priority manufacturing\n\n"
-                    "**Inventory Analysis:**\n"
-                    "- *\"Inventory gaps\"* - Current inventory below targets by store/product\n"
-                    "- *\"Inventory status\"* - Overall inventory health summary\n"
-                    "- *\"Inventory gaps in store 100\"* - Store-specific inventory issues\n\n"
-                    "**Decision Insights:**\n"
-                    "- *\"Why these decisions\"* - Analysis of decision reasons\n"
-                    "- *\"High-cost actions\"* - Most expensive recommendations\n"
-                    "- *\"Product specific details\"* - Product-level recommendations\n\n"
-                    "Please enter your query below to get started."
-                )
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                st.rerun()
-            elif intent == "out_of_scope":
-                response = (
-                    "This query appears to be outside my designated scope. I am calibrated strictly for supply chain "
-                    "optimization analysis, including inventory transfers, production runs, and cost diagnostics.\n\n"
-                    "Please rephrase your request. For example:\n"
-                    "- *\"Why was inventory transferred between facilities?\"*\n"
-                    "- *\"What manufacturing actions were recommended?\"*\n"
-                    "- *\"Compare the optimized scenario against the baseline.\"*"
-                )
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                st.rerun()
-            else:
-                has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+            # ── Run the full NLP pipeline via the orchestrator ─────────────
+            with st.spinner("Processing query…"):
+                final_response = handle_user_query(prompt)
 
-                badge_html = f'<span class="intent-badge">{label}</span>'
-                if has_specifics:
-                    badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
-
-                nlp_scenario = params["scenario"]
-                # Keep dashboard selection stable while loading scenario-scoped NLP data.
-                selected_before_chat = st.session_state.selected_scenario
-                scoped = _load_all_data_cached(nlp_scenario)
-                st.session_state.selected_scenario = selected_before_chat
-
-                # Most intents need a single scenario payload for correct totals/costs.
-                scenario_payload = scoped.get("scenario", {})
-                if intent in ("scenario_summary", "impact_analysis"):
-                    scenario_payload = scoped.get("scenario_summary_all", {})
-
-            # Extract list parameters (limit, sort_by, order)
-            from nlp.intent_classifier import extract_list_parameters
-            list_params = extract_list_parameters(prompt)
-            params.update(list_params)
-
-            data = {
-                "scenario": scenario_payload,
-                "transfers": scoped.get("transfers", {}),
-                "manufacturing": scoped.get("manufacturing", {}),
-                "inventory": scoped.get("inventory", []),
-            }
-
-            # Build a small RAG context (only include rows relevant to the user's filters)
-            def _normalize_param_ids(params):
-                # Accept forms like 'product_489' or '489'
-                pids = []
-                sids = []
-                for p in params.get("product_id", []):
-                    if isinstance(p, str) and p.startswith("product_"):
-                        pids.append(p.split("product_")[-1])
-                    else:
-                        pids.append(str(p))
-                for s in params.get("store_id", []):
-                    if isinstance(s, str) and s.startswith("store_"):
-                        sids.append(s.split("store_")[-1])
-                    else:
-                        sids.append(str(s))
-                return pids, sids
-
-            def _build_rag_text(data, params, intent, limit=10):
-                pids, sids = _normalize_param_ids(params or {})
-                lines = []
-                # Use ONLY JSON sources
-                transfers_rows = data.get("transfers", {}).get("transfers", [])
-                mfg_rows = data.get("manufacturing", {}).get("manufacturing_actions", [])
-                inv_rows = data.get("inventory", [])
-
-                def _match_row(row):
-                    # row may use keys like product_id, from_store, to_store, store_id
-                    try:
-                        prod = str(row.get("product_id", ""))
-
-                        if pids and prod not in pids:
-                            return False
-                        if sids:
-                            # check any store field
-                            if (str(row.get("from_store", "")) not in sids) and (str(row.get("to_store", "")) not in sids) and (str(row.get("store_id", "")) not in sids):
-                                return False
-                        return True
-                    except Exception:
-                        return False
-
-                # add matching transfers
-                added = 0
-                for r in transfers_rows:
-                    if _match_row(r):
-                        lines.append(f"TRANSFER | from={r.get('from_store')} to={r.get('to_store')} product={r.get('product_id')} qty={r.get('qty') or r.get('quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('transport_cost'))} reasons={r.get('reason_codes')}")
-                        added += 1
-                        if added >= limit:
-                            break
-                added = 0
-                for r in mfg_rows:
-                    if _match_row(r):
-                        lines.append(f"MANUFACTURE | store={r.get('store_id') or ''} product={r.get('product_id')} qty={r.get('qty') or r.get('manufacture_quantity')} cost={r.get('cost') or (r.get('cost_impact') and r.get('cost_impact').get('manufacturing_cost'))} reasons={r.get('reason_codes')}")
-                        added += 1
-                        if added >= limit:
-                            break
-                added = 0
-                for r in inv_rows:
-                    if pids and str(r.get('product_id')) not in pids:
-                        continue
-                    if sids and str(r.get('store_id')) not in sids:
-                        continue
-                    lines.append(f"INVENTORY | store={r.get('store_id')} product={r.get('product_id')} current={r.get('current')} final={r.get('final')} target={r.get('target')}")
-                    added += 1
-                    if added >= limit:
-                        break
-                if not lines:
-                    return ""
-                return "\n".join(lines)
-
-            with st.spinner("Building explanation…"):
-                raw_explanation = build_explanation(intent, data, params)
-
-            rag_rows_only = _build_rag_text(data, params, intent)
-            rag_text = (rag_rows_only + "\n\nRAW_EXPLANATION:\n" + raw_explanation) if rag_rows_only else raw_explanation
-
-            refined = None
-            fallback = False
-            refinement_rejected = False
-
-            is_empty_state = raw_explanation.startswith("No transfers match") or raw_explanation.startswith("No manufacturing actions match") or raw_explanation.startswith("No urgent")
-
-            table_intents = ("list_entities", "total_counts", "top_transfers", "top_manufacturing",
-                           "urgent_transfers", "high_cost_actions", "reason_analysis",
-                           "store_activity", "product_recommendations", "cost_breakdown")
-            skip_refiner = is_empty_state or intent in table_intents
-
-            if skip_refiner:
-                refined = raw_explanation
-            else:
-                try:
-                    with st.spinner("Refining with TinyLlama…"):
-                        refined_input = rag_text if rag_text else raw_explanation
-                        refined = refine_explanation(refined_input, user_question=prompt)
-                        if not refined or len(refined) < 10:
-                            refinement_rejected = True
-                        else:
-                            lower_refined = refined.lower()
-                            uncertain_phrases = ["i think", "maybe", "could be", "possibly", "as an ai", "as a model"]
-                            unrelated_indicators = ["transportation system", "buses", "passengers", "cargo", "trams"]
-                            if any(p in lower_refined for p in uncertain_phrases):
-                                refinement_rejected = True
-                            if any(p in lower_refined for p in unrelated_indicators):
-                                refinement_rejected = True
-                            if len(refined) > 5000:
-                                refinement_rejected = True
-                except Exception:
-                    fallback = True
-
-            if refinement_rejected or fallback:
-                final_response = raw_explanation or "Insufficient data to answer."
-
-                provenance_map = {
-                    "explain_transfer": "optimization/output-json/transfer_recommendations.json",
-                    "top_transfers": "optimization/output-json/transfer_recommendations.json",
-                    "urgent_transfers": "optimization/output-json/transfer_recommendations.json",
-                    "store_activity": "optimization/output-json/transfer_recommendations.json",
-                    "explain_manufacturing": "optimization/output-json/manufacturing_decisions.json",
-                    "top_manufacturing": "optimization/output-json/manufacturing_decisions.json",
-                    "high_cost_actions": "optimization/output-json/manufacturing_decisions.json",
-                    "product_recommendations": "optimization/output-json/manufacturing_decisions.json",
-                    "total_counts": "optimization/output-json/scenario_summary.json",
-                    "scenario_summary": "optimization/output-json/scenario_summary.json",
-                    "cost_breakdown": "optimization/output-json/scenario_summary.json",
-                    "reason_analysis": "optimization/output-json/transfer_recommendations.json",
-                }
-                prov = provenance_map.get(intent)
-                if prov:
-                    final_response += f"\n\n[Source: {prov} — deterministic summary]"
-
-                if refinement_rejected and not fallback:
-                    final_response += "\n\n[Note: A refined summary was suppressed because it appeared to contain unrelated or uncertain content. Displaying the original deterministic output.]"
-                if fallback:
-                    final_response += "\n\n[Note: LLM refinement unavailable. Displaying root deterministic evaluation.]"
-            else:
-                final_response = refined if refined else raw_explanation
-
+            # ── Build display with intent and scenario badges ──────────────
+            has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
+            badge_html = f'<span class="intent-badge">{label}</span>'
+            if has_specifics:
+                badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
             scenario_badge = f'<span class="filter-badge">Scenario: {nlp_scenario}</span>'
-            full_display = f"{badge_html} {scenario_badge}\n\n{final_response}"
-            if fallback or refinement_rejected:
-                full_display += '\n\n<p class="fallback-note">System indicator: LLM refinement suppressed. Displaying root deterministic evaluation.</p>'
+
+            if intent in ("greeting", "out_of_scope"):
+                full_display = final_response
+            else:
+                full_display = f"{badge_html} {scenario_badge}\n\n{final_response}"
 
             st.session_state.messages.append({"role": "assistant", "content": full_display})
             st.rerun()

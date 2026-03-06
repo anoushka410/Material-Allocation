@@ -1,17 +1,21 @@
 """Unit tests for nlp.explanation_engine."""
 import pytest
 from nlp.explanation_engine import (
+    detect_scenario,
     explain_transfer,
     explain_manufacturing,
     explain_scenario,
     explain_entities,
     explain_counts,
     explain_top_transfers,
+    explain_top_transfers_by_quantity,
     explain_top_manufacturing,
     explain_urgent_transfers,
     explain_reason_analysis,
     explain_store_activity,
     explain_cost_breakdown,
+    explain_inventory_status,
+    explain_inventory_gaps,
     build_explanation,
 )
 
@@ -32,6 +36,7 @@ SCENARIO_DATA = {
     },
 }
 
+# Individual transfer records include a "scenario" field matching the wrapper
 TRANSFER_DATA = {
     "scenario": "test_run",
     "transfers": [
@@ -42,6 +47,7 @@ TRANSFER_DATA = {
             "quantity": 10.0,
             "reason_codes": ["excess_inventory_at_source", "projected_stockout_at_destination"],
             "cost_impact": {"transport_cost": 50.0},
+            "scenario": "test_run",
         },
         {
             "from_store": "3",
@@ -50,10 +56,12 @@ TRANSFER_DATA = {
             "quantity": 5.0,
             "reason_codes": ["safety_stock_violation_prevented"],
             "cost_impact": {"transport_cost": 20.0},
+            "scenario": "test_run",
         },
     ],
 }
 
+# Manufacturing data in the old schema format (manufacture_quantity + cost_impact)
 MANUFACTURING_DATA = {
     "scenario": "test_run",
     "manufacturing_actions": [
@@ -62,21 +70,80 @@ MANUFACTURING_DATA = {
             "manufacture_quantity": 100.0,
             "reason_codes": ["manufacture_to_avoid_stockout"],
             "cost_impact": {"manufacturing_cost": 5000.0},
+            "scenario": "test_run",
         },
         {
             "product_id": "200",
             "manufacture_quantity": 50.0,
             "reason_codes": ["high_demand_variability"],
             "cost_impact": {"manufacturing_cost": 2500.0},
+            "scenario": "test_run",
         },
     ],
 }
+
+# Manufacturing data in the new JSON format (quantity + cost as top-level fields)
+MANUFACTURING_DATA_NEW_FORMAT = {
+    "scenario": "test_run",
+    "manufacturing_actions": [
+        {
+            "product_id": "100",
+            "quantity": 100.0,
+            "cost": 5000.0,
+            "reason_codes": ["manufacture_to_avoid_stockout"],
+            "scenario": "test_run",
+        },
+        {
+            "product_id": "200",
+            "quantity": 50.0,
+            "cost": 2500.0,
+            "reason_codes": ["high_demand_variability"],
+            "scenario": "test_run",
+        },
+    ],
+}
+
+INVENTORY_DATA = [
+    {"store_id": "1", "product_id": "100", "current": 5.0, "final": 10.0, "target": 10.0, "scenario": "test_run"},
+    {"store_id": "2", "product_id": "200", "current": 3.0, "final": 4.0, "target": 8.0, "scenario": "test_run"},
+]
 
 FULL_DATA = {
     "scenario": SCENARIO_DATA,
     "transfers": TRANSFER_DATA,
     "manufacturing": MANUFACTURING_DATA,
+    "inventory": INVENTORY_DATA,
 }
+
+FULL_DATA_NEW_FORMAT = {
+    "scenario": SCENARIO_DATA,
+    "transfers": TRANSFER_DATA,
+    "manufacturing": MANUFACTURING_DATA_NEW_FORMAT,
+    "inventory": INVENTORY_DATA,
+}
+
+
+# ── detect_scenario ───────────────────────────────────────────────────────────
+
+class TestDetectScenario:
+    def test_default_scenario(self):
+        assert detect_scenario("show transfer recommendations") == "base_case_standard_conditions"
+
+    def test_high_disruption(self):
+        result = detect_scenario("show transfers under high disruption")
+        assert result == "risk_aware_high_disruption"
+
+    def test_fuel_shock(self):
+        result = detect_scenario("what happens during a fuel shock scenario")
+        assert result == "transport_cost_increase_fuel_shock"
+
+    def test_baseline(self):
+        result = detect_scenario("show the baseline scenario results")
+        assert result == "base_case_standard_conditions"
+
+    def test_demand_spike(self):
+        result = detect_scenario("show results for demand spike")
+        assert result == "demand_spike_high_forecast"
 
 
 # ── explain_transfer ──────────────────────────────────────────────────────────
@@ -89,18 +156,18 @@ class TestExplainTransfer:
         assert "Transfer 2" in out
 
     def test_product_filter(self):
-        params = {"product_id": ["100"], "store_id": []}
+        params = {"product_id": ["100"], "store_id": [], "scenario": "test_run"}
         out = explain_transfer(FULL_DATA, params)
         assert "100" in out
         assert "Transfer 1" in out
 
     def test_store_filter(self):
-        params = {"product_id": [], "store_id": ["3"]}
+        params = {"product_id": [], "store_id": ["3"], "scenario": "test_run"}
         out = explain_transfer(FULL_DATA, params)
         assert "200" in out
 
     def test_no_match_filter(self):
-        params = {"product_id": ["999"], "store_id": []}
+        params = {"product_id": ["999"], "store_id": [], "scenario": "test_run"}
         out = explain_transfer(FULL_DATA, params)
         assert "No transfers match" in out
 
@@ -108,19 +175,25 @@ class TestExplainTransfer:
 # ── explain_manufacturing ─────────────────────────────────────────────────────
 
 class TestExplainManufacturing:
-    def test_basic_output(self):
+    def test_basic_output_old_format(self):
         out = explain_manufacturing(FULL_DATA)
         assert "Decision 1" in out
         assert "100" in out
 
+    def test_basic_output_new_format(self):
+        """Verify dual-format support: quantity/cost as top-level fields."""
+        out = explain_manufacturing(FULL_DATA_NEW_FORMAT)
+        assert "Decision 1" in out
+        assert "100" in out
+
     def test_product_filter(self):
-        params = {"product_id": ["200"]}
+        params = {"product_id": ["200"], "scenario": "test_run"}
         out = explain_manufacturing(FULL_DATA, params)
         assert "200" in out
         assert "Decision 1" in out
 
     def test_no_match_filter(self):
-        params = {"product_id": ["999"]}
+        params = {"product_id": ["999"], "scenario": "test_run"}
         out = explain_manufacturing(FULL_DATA, params)
         assert "No manufacturing actions match" in out
 
@@ -182,6 +255,19 @@ class TestExplainTopTransfers:
         assert "No transfers" in out
 
 
+# ── explain_top_transfers_by_quantity ─────────────────────────────────────────
+
+class TestExplainTopTransfersByQuantity:
+    def test_ranked_by_quantity(self):
+        out = explain_top_transfers_by_quantity(FULL_DATA)
+        # Transfer 1 has qty=10 and Transfer 2 has qty=5 → Transfer 1 should appear first
+        assert "100" in out  # product_id of transfer 1
+
+    def test_limit_1(self):
+        out = explain_top_transfers_by_quantity(FULL_DATA, limit=1)
+        assert "10.00" in out  # quantity of the highest-quantity transfer
+
+
 # ── explain_top_manufacturing ─────────────────────────────────────────────────
 
 class TestExplainTopManufacturing:
@@ -191,6 +277,11 @@ class TestExplainTopManufacturing:
 
     def test_limit(self):
         out = explain_top_manufacturing(FULL_DATA, limit=1)
+        assert "5,000" in out or "5000" in out
+
+    def test_new_format_cost(self):
+        """Cost should be read from top-level 'cost' field in new JSON format."""
+        out = explain_top_manufacturing(FULL_DATA_NEW_FORMAT, limit=1)
         assert "5,000" in out or "5000" in out
 
 
@@ -252,14 +343,59 @@ class TestExplainCostBreakdown:
         assert "100,000" in out or "100000" in out
 
 
+# ── explain_inventory_status ──────────────────────────────────────────────────
+
+class TestExplainInventoryStatus:
+    def test_basic_output(self):
+        out = explain_inventory_status(FULL_DATA)
+        assert "Inventory Status" in out
+        assert "2" in out  # 2 inventory records
+
+    def test_shows_store_product(self):
+        out = explain_inventory_status(FULL_DATA)
+        assert "1" in out  # store_id
+        assert "100" in out  # product_id
+
+
+# ── explain_inventory_gaps ────────────────────────────────────────────────────
+
+class TestExplainInventoryGaps:
+    def test_gap_detected(self):
+        out = explain_inventory_gaps(FULL_DATA)
+        # Store 2, product 200: final=4 < target=8
+        assert "Inventory Gaps" in out
+        assert "200" in out
+
+    def test_no_gaps(self):
+        no_gap_data = {
+            "scenario": SCENARIO_DATA,
+            "transfers": TRANSFER_DATA,
+            "manufacturing": MANUFACTURING_DATA,
+            "inventory": [
+                {"store_id": "1", "product_id": "100", "current": 10.0, "final": 10.0, "target": 10.0},
+            ],
+        }
+        out = explain_inventory_gaps(no_gap_data)
+        assert "No inventory gaps" in out
+
+
 # ── build_explanation dispatcher ─────────────────────────────────────────────
 
 class TestBuildExplanation:
-    def test_explain_transfer_dispatch(self):
+    def test_transfer_recommendations_dispatch(self):
+        out = build_explanation("transfer_recommendations", FULL_DATA)
+        assert "Transfer" in out
+
+    def test_manufacturing_plan_dispatch(self):
+        out = build_explanation("manufacturing_plan", FULL_DATA)
+        assert "Decision" in out
+
+    # Backward-compatible aliases
+    def test_explain_transfer_alias(self):
         out = build_explanation("explain_transfer", FULL_DATA)
         assert "Transfer" in out
 
-    def test_explain_manufacturing_dispatch(self):
+    def test_explain_manufacturing_alias(self):
         out = build_explanation("explain_manufacturing", FULL_DATA)
         assert "Decision" in out
 
@@ -267,9 +403,25 @@ class TestBuildExplanation:
         out = build_explanation("scenario_summary", FULL_DATA)
         assert "Scenario" in out
 
-    def test_top_transfers_limit(self):
-        out = build_explanation("top_transfers", FULL_DATA, params={"limit": 1})
+    def test_top_transfers_by_cost_dispatch(self):
+        out = build_explanation("top_transfers_by_cost", FULL_DATA, params={"limit": 1})
         assert out  # non-empty
+
+    def test_top_transfers_by_quantity_dispatch(self):
+        out = build_explanation("top_transfers_by_quantity", FULL_DATA, params={"limit": 1})
+        assert out  # non-empty
+
+    def test_top_manufacturing_items_dispatch(self):
+        out = build_explanation("top_manufacturing_items", FULL_DATA, params={"limit": 1})
+        assert out  # non-empty
+
+    def test_inventory_status_dispatch(self):
+        out = build_explanation("inventory_status", FULL_DATA)
+        assert "Inventory" in out
+
+    def test_inventory_gaps_dispatch(self):
+        out = build_explanation("inventory_gaps", FULL_DATA)
+        assert "Gaps" in out or "No inventory gaps" in out
 
     def test_unknown_intent_returns_empty(self):
         out = build_explanation("nonexistent_intent", FULL_DATA)
@@ -278,3 +430,4 @@ class TestBuildExplanation:
     def test_cost_breakdown_dispatch(self):
         out = build_explanation("cost_breakdown", FULL_DATA)
         assert "%" in out
+

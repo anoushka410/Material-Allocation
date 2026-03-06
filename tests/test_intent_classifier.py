@@ -10,12 +10,12 @@ class TestKeywordClassify:
         assert classify_intent("Hey there") == "greeting"
 
     def test_transfer_intent(self):
-        assert _keyword_classify("explain the transfer recommendations") == "explain_transfer"
-        assert _keyword_classify("show transfer recommendation details") == "explain_transfer"
+        assert _keyword_classify("explain the transfer recommendations") == "transfer_recommendations"
+        assert _keyword_classify("show transfer recommendation details") == "transfer_recommendations"
 
     def test_manufacturing_intent(self):
-        assert _keyword_classify("explain manufacturing decisions") == "explain_manufacturing"
-        assert _keyword_classify("what items need to be manufactured today") == "explain_manufacturing"
+        assert _keyword_classify("explain manufacturing decisions") == "manufacturing_plan"
+        assert _keyword_classify("what items need to be manufactured today") == "manufacturing_plan"
 
     def test_scenario_summary(self):
         assert _keyword_classify("give me a scenario summary") == "scenario_summary"
@@ -25,13 +25,17 @@ class TestKeywordClassify:
         assert _keyword_classify("how many transfers are there") == "total_counts"
         assert _keyword_classify("count total recommendations") == "total_counts"
 
-    def test_top_transfers(self):
-        assert _keyword_classify("top transfer by cost") == "top_transfers"
-        assert _keyword_classify("largest transfers") == "top_transfers"
+    def test_top_transfers_by_cost(self):
+        assert _keyword_classify("top transfer by cost") == "top_transfers_by_cost"
+        assert _keyword_classify("most expensive transfers") == "top_transfers_by_cost"
 
-    def test_top_manufacturing(self):
-        assert _keyword_classify("top manufacturing by cost") == "top_manufacturing"
-        assert _keyword_classify("most expensive manufacturing recommendation") == "top_manufacturing"
+    def test_top_transfers_by_quantity(self):
+        assert _keyword_classify("top transfer by quantity") == "top_transfers_by_quantity"
+        assert _keyword_classify("transfers by units transferred") == "top_transfers_by_quantity"
+
+    def test_top_manufacturing_items(self):
+        assert _keyword_classify("top manufacturing by cost") == "top_manufacturing_items"
+        assert _keyword_classify("most expensive manufacturing recommendation") == "top_manufacturing_items"
 
     def test_urgent_transfers(self):
         assert _keyword_classify("urgent transfers") == "urgent_transfers"
@@ -53,18 +57,30 @@ class TestKeywordClassify:
         assert _keyword_classify("show cost breakdown") == "cost_breakdown"
         assert _keyword_classify("cost structure details") == "cost_breakdown"
 
+    def test_inventory_status(self):
+        assert _keyword_classify("inventory status") == "inventory_status"
+        assert _keyword_classify("stock level summary") == "inventory_status"
+
+    def test_inventory_gaps(self):
+        assert _keyword_classify("inventory gaps below target") == "inventory_gaps"
+        assert _keyword_classify("low inventory shortage") == "inventory_gaps"
+
+    def test_scenario_comparison(self):
+        assert _keyword_classify("compare scenarios baseline vs alternative") == "scenario_comparison"
+        assert _keyword_classify("scenario comparison") == "scenario_comparison"
+
     def test_out_of_scope(self):
         assert _keyword_classify("what is the weather today") == "out_of_scope"
         assert _keyword_classify("tell me a joke") == "out_of_scope"
 
     def test_top_manufacturing_beats_explain_manufacturing(self):
-        # Priority intents (like top_manufacturing) are checked before general intents
-        # (like explain_manufacturing) in _keyword_classify. See the priority_intents list
+        # Priority intents (like top_manufacturing_items) are checked before general intents
+        # (like manufacturing_plan) in _keyword_classify. See the priority_intents list
         # in intent_classifier.py.
-        assert _keyword_classify("top manufacturing actions") == "top_manufacturing"
+        assert _keyword_classify("top manufacturing actions") == "top_manufacturing_items"
 
     def test_top_transfers_beats_explain_transfer(self):
-        assert _keyword_classify("top transfer routes") == "top_transfers"
+        assert _keyword_classify("top transfer routes by cost") == "top_transfers_by_cost"
 
 
 class TestExtractParameters:
@@ -109,3 +125,9 @@ class TestExtractParameters:
     def test_sort_by_cost(self):
         params = extract_parameters("list transfers sorted by cost")
         assert params["sort_by"] == "cost"
+
+    def test_limit_capped_at_max(self):
+        """Requesting more than MAX_RESULTS should be capped at 10."""
+        params = extract_parameters("top 50 transfers")
+        assert params["limit"] == 10
+

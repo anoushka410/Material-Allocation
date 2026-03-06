@@ -682,6 +682,7 @@ def load_csv(path: str) -> list[dict]:
     return rows
 
 
+# noinspection PyInterpreter
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -2153,7 +2154,7 @@ with tab1:
             # ── Classify intent for badge display (lightweight, also used for
             #    contextual follow-up logic) ─────────────────────────────────
             with st.spinner("Classifying intent…"):
-                intent = classify_intent(prompt)
+                intent, detection_method = classify_intent(prompt)
 
             params = extract_parameters(prompt)
 
@@ -2173,9 +2174,12 @@ with tab1:
             with st.spinner("Processing query…"):
                 final_response = handle_user_query(prompt)
 
-            # ── Build display with intent and scenario badges ──────────────
+            # ── Build display with intent, method, and scenario badges ──────────────
             has_specifics = any(params.get(k) for k in ["product_id", "store_id"])
-            badge_html = f'<span class="intent-badge">{label}</span>'
+            # Add detection method indicator
+            method_emoji = "🤖" if detection_method == "llm" else "🔑"
+            method_text = "LLM" if detection_method == "llm" else "Keyword"
+            badge_html = f'<span class="intent-badge">{label}</span> <span class="filter-badge">{method_emoji} {method_text}</span>'
             if has_specifics:
                 badge_html += ' <span class="filter-badge">Specific Filter Applied</span>'
             scenario_badge = f'<span class="filter-badge">Scenario: {nlp_scenario}</span>'

@@ -385,18 +385,20 @@ def extract_list_parameters(user_message: str) -> dict:
     return extract_parameters(user_message)
 
 
-def classify_intent(user_message: str) -> str:
+def classify_intent(user_message: str) -> tuple[str, str]:
     """Classify user query into one of the supported supply chain intents.
 
     Uses the local LLM (via call_llm) as the primary classifier, with a
     keyword-based fallback when the LLM is unavailable or returns an
     unrecognised label.
 
-    Returns one of the labels defined in ALLOWED_INTENTS.
+    Returns:
+        tuple: (intent, method) where intent is one of ALLOWED_INTENTS and
+               method is either "llm" or "keyword"
     """
     lower = user_message.strip().lower()
     if lower in _GREETING_KEYWORDS or any(lower.startswith(g) for g in _GREETING_KEYWORDS):
-        return "greeting"
+        return "greeting", "keyword"
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -413,26 +415,26 @@ def classify_intent(user_message: str) -> str:
         is_gap_style = any(m in lower_msg for m in gap_markers)
         return has_inventory_word and has_entity and not is_gap_style
 
-    def _fallback_with_params(intent: str) -> str:
+    def _fallback_with_params(intent: str, method: str) -> tuple[str, str]:
         params = extract_parameters(user_message)
 
         # Direct inventory lookups with product/store should return status values,
         # not transfer actions or gap-only summaries.
         if _is_direct_inventory_lookup(user_message, params):
-            return "inventory_status"
+            return "inventory_status", method
 
         # If LLM/keyword gives out_of_scope but user mentioned a specific
         # store or product, keep legacy behavior unless inventory lookup pattern matched above.
         if intent == "out_of_scope":
             if params.get("store_id") or params.get("product_id"):
-                return "transfer_recommendations"
-        return intent
+                return "transfer_recommendations", method
+        return intent, method
 
     try:
         raw = call_llm(messages).strip().lower()
         label = raw.split()[0] if raw else ""
         if label in ALLOWED_INTENTS:
-            return _fallback_with_params(label)
-        return _fallback_with_params(_keyword_classify(user_message))
+            return _fallback_with_params(label, "llm")
+        return _fallback_with_params(_keyword_classify(user_message), "keyword")
     except Exception:
-        return _fallback_with_params(_keyword_classify(user_message))
+        return _fallback_with_params(_keyword_classify(user_message), "keyword")

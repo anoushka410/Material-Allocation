@@ -1162,7 +1162,7 @@ def handle_user_query(query: str) -> str:
     from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios
 
     # ── 1. Intent detection ────────────────────────────────────────────────────
-    intent = classify_intent(query)
+    intent, _ = classify_intent(query)  # We don't need the detection method here
 
     if intent == "greeting":
         return _GREETING_RESPONSE

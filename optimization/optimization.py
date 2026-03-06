@@ -56,7 +56,7 @@ class ScenarioConfig:
         "transport_cost_increase_fuel_shock": {
             "description": "Increased shipping costs to simulate fuel price or logistics inflation.",
             "demand_multiplier": 1.0,
-            "transport_cost_multiplier": 1.5,
+            "transport_cost_multiplier": 1.3,
             "lead_time_multiplier": 1.0,
             "safety_stock_multiplier": 1.0,
             "delay_probability_multiplier": 1.0,
@@ -390,7 +390,8 @@ def run_optimization(
 
     MFG_BASE = 50
     HOLDING_COST = 1.0
-    TRANSPORT_SCALE = 0.1
+    # Increased from 0.1 to 3.0 so transfer costs have meaningful weight vs. manufacturing/holding.
+    TRANSPORT_SCALE = 3.0
     MFG_CAPACITY = 5000
 
     mfg_cost = {s: MFG_BASE * (1 + shipping_lookup.get(s, 450) / 1000) for s in stores}

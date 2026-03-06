@@ -194,6 +194,45 @@ def _mfg_qty(m: dict) -> float:
     return float(qty)
 
 
+def _inventory_flow_components(store_id: str, product_id: str, transfers: list[dict], manufacturing: list[dict]) -> tuple[float, float, float, dict[str, float]]:
+    """Return (mfg_added, inbound, outbound, inbound_by_store) for a store-product."""
+    mfg_added = 0.0
+    inbound = 0.0
+    outbound = 0.0
+    inbound_by_store: dict[str, float] = {}
+
+    s = str(store_id)
+    p = str(product_id)
+
+    for m in manufacturing:
+        if str(m.get("store_id", "")) == s and str(m.get("product_id", "")) == p:
+            mfg_added += _mfg_qty(m)
+
+    for t in transfers:
+        if str(t.get("product_id", "")) != p:
+            continue
+        qty = float(t.get("quantity", 0) or 0)
+        from_s = str(t.get("from_store", ""))
+        to_s = str(t.get("to_store", ""))
+        if to_s == s:
+            inbound += qty
+            inbound_by_store[from_s] = inbound_by_store.get(from_s, 0.0) + qty
+        if from_s == s:
+            outbound += qty
+
+    return mfg_added, inbound, outbound, inbound_by_store
+
+
+def _flow_source_label(mfg_added: float, inbound: float) -> str:
+    if mfg_added > 0 and inbound > 0:
+        return "Manufacturing + Transfer"
+    if mfg_added > 0:
+        return "Manufacturing"
+    if inbound > 0:
+        return "Transfer"
+    return "No Action"
+
+
 def explain_transfer(data: dict, params: dict = None) -> str:
     """Generate a deterministic markdown explanation of transfer recommendations.
 
@@ -848,6 +887,8 @@ def explain_inventory_status(data: dict, params: dict = None) -> str:
     """
     inventory = data.get("inventory", [])
     scenario = data.get("scenario", {}).get("scenario", "Unknown")
+    transfers = data.get("transfers", {}).get("transfers", [])
+    manufacturing = data.get("manufacturing", {}).get("manufacturing_actions", [])
 
     if params:
         p_store = [str(s).lower().replace("store_", "") for s in params.get("store_id", [])]
@@ -875,16 +916,45 @@ def explain_inventory_status(data: dict, params: dict = None) -> str:
         f"| Records Below Target | {below_target} |",
         f"| On-Target Rate | {(at_target/total)*100:.1f}% |" if total > 0 else "| On-Target Rate | N/A |",
         "",
-        "**Sample Records (first 10):**",
-        "| Store | Product | Current | Final | Target |",
-        "|-------|---------|---------|-------|--------|",
+        "**Inventory Flow (Current -> Final):**",
+        "| Store | Product | Current | Final | Target | Source Type | Mfg Added | Inbound | Outbound | Net Change |",
+        "|-------|---------|---------|-------|--------|-------------|-----------|---------|----------|------------|",
     ]
-    for i in inventory[:10]:
+
+    rows = inventory[:10]
+    for i in rows:
+        store_id = str(i.get("store_id", "N/A"))
+        product_id = str(i.get("product_id", "N/A"))
+        current = float(i.get("current", 0) or 0)
+        final = float(i.get("final", 0) or 0)
+        target = float(i.get("target", 0) or 0)
+
+        mfg_added, inbound, outbound, _ = _inventory_flow_components(store_id, product_id, transfers, manufacturing)
+        source_type = _flow_source_label(mfg_added, inbound)
+        net_change = final - current
+
         lines.append(
-            f"| {i.get('store_id', 'N/A')} | {i.get('product_id', 'N/A')} "
-            f"| {float(i.get('current', 0)):.2f} | {float(i.get('final', 0)):.2f} "
-            f"| {float(i.get('target', 0)):.2f} |"
+            f"| {store_id} | {product_id} | {current:.2f} | {final:.2f} | {target:.2f} | {source_type} | {mfg_added:.2f} | {inbound:.2f} | {outbound:.2f} | {net_change:.2f} |"
         )
+
+    lines.extend(["", "**Inbound Transfer Sources (for listed rows):**"])
+    any_sources = False
+    for i in rows:
+        store_id = str(i.get("store_id", "N/A"))
+        product_id = str(i.get("product_id", "N/A"))
+        _, _, _, inbound_by_store = _inventory_flow_components(store_id, product_id, transfers, manufacturing)
+        if inbound_by_store:
+            any_sources = True
+            sources = ", ".join(
+                f"Store {src}: {qty:.2f}" for src, qty in sorted(inbound_by_store.items(), key=lambda x: x[0])
+            )
+            lines.append(f"- Store {store_id}, Product {product_id} <- {sources}")
+
+    if not any_sources:
+        lines.append("- No inbound transfers for the listed rows.")
+
+    lines.append("")
+    lines.append("Final inventory reflects: `Current + Manufacturing + Inbound Transfers - Outbound Transfers`.")
 
     return "\n".join(lines)
 
@@ -912,7 +982,36 @@ def explain_inventory_gaps(data: dict, params: dict = None) -> str:
     ]
 
     if not gaps:
-        return "No inventory gaps detected — all items are meeting their targets in this scenario."
+        if not inventory:
+            return "No inventory records found for the selected scenario/filters."
+
+        # Even when there is no gap, show current/final/target so users can see status after actions.
+        rows = sorted(
+            inventory,
+            key=lambda i: (str(i.get("store_id", "")), str(i.get("product_id", "")))
+        )[:MAX_RESULTS]
+
+        lines = [
+            "**Inventory Status for Requested Items**",
+            f"**Scenario:** {scenario}",
+            f"**Records Shown:** {len(rows)} of {len(inventory)}",
+            "",
+            "No inventory gaps detected — all listed items are meeting their targets in this scenario.",
+            "",
+            "| Store | Product | Current | Final (Post-Action) | Target | Gap (Target-Final) | Status |",
+            "|-------|---------|---------|---------------------|--------|--------------------|--------|",
+        ]
+        for i in rows:
+            current = float(i.get("current", 0))
+            final = float(i.get("final", 0))
+            target = float(i.get("target", 0))
+            gap = target - final
+            status = "On/Above Target" if final >= target else "Below Target"
+            lines.append(
+                f"| {i.get('store_id', 'N/A')} | {i.get('product_id', 'N/A')} "
+                f"| {current:.2f} | {final:.2f} | {target:.2f} | {gap:.2f} | {status} |"
+            )
+        return "\n".join(lines)
 
     # Sort by absolute gap (largest deficit first)
     gaps_sorted = sorted(

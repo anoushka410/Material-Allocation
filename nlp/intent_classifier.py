@@ -110,7 +110,8 @@ _KEYWORD_MAP = {
     "inventory_status": [
         "inventory status", "stock level", "inventory health", "current stock",
         "stock summary", "inventory overview", "how much stock", "on hand",
-        "inventory report", "stock position",
+        "inventory report", "stock position", "what is the inventory",
+        "inventory for product", "inventory for store", "current inventory",
     ],
     "scenario_summary": [
         "scenario", "summary", "overview", "high risk", "low risk",
@@ -207,8 +208,8 @@ def _keyword_classify(text: str) -> str:
         "store_activity",
         "product_recommendations",
         "cost_breakdown",
-        "inventory_gaps",
         "inventory_status",
+        "inventory_gaps",
         "scenario_comparison",
     ]
 
@@ -226,9 +227,6 @@ def _keyword_classify(text: str) -> str:
 
     return "out_of_scope"
 
-
-import re
-from nlp.llm_client import call_llm
 
 # Maximum number of results to return (safety cap)
 MAX_RESULTS = 10
@@ -405,11 +403,27 @@ def classify_intent(user_message: str) -> str:
         {"role": "user", "content": user_message},
     ]
 
+    def _is_direct_inventory_lookup(message: str, params: dict) -> bool:
+        lower_msg = message.lower()
+        has_inventory_word = any(w in lower_msg for w in ["inventory", "stock", "on hand", "current"])
+        has_entity = bool(params.get("store_id") or params.get("product_id"))
+        gap_markers = [
+            "gap", "below", "shortage", "deficit", "under target", "stockout", "low inventory",
+        ]
+        is_gap_style = any(m in lower_msg for m in gap_markers)
+        return has_inventory_word and has_entity and not is_gap_style
+
     def _fallback_with_params(intent: str) -> str:
+        params = extract_parameters(user_message)
+
+        # Direct inventory lookups with product/store should return status values,
+        # not transfer actions or gap-only summaries.
+        if _is_direct_inventory_lookup(user_message, params):
+            return "inventory_status"
+
         # If LLM/keyword gives out_of_scope but user mentioned a specific
-        # store or product, treat as a transfer query.
+        # store or product, keep legacy behavior unless inventory lookup pattern matched above.
         if intent == "out_of_scope":
-            params = extract_parameters(user_message)
             if params.get("store_id") or params.get("product_id"):
                 return "transfer_recommendations"
         return intent

@@ -160,6 +160,7 @@ def explain_transfer(data: dict, params: dict = None) -> str:
 
     All numeric values (quantity, cost) come directly from JSON data.
     Supports optional filtering by product ID or store ID.
+    Respects limit parameter for result count.
     """
     transfer_data = data.get("transfers", {})
     transfers = transfer_data.get("transfers", [])
@@ -176,6 +177,13 @@ def explain_transfer(data: dict, params: dict = None) -> str:
 
     scenario_label = selected_scenario or transfer_data.get("scenario") or "Unknown"
 
+    # Extract limit from params; default to MAX_RESULTS
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict):
+        raw_limit = params.get("limit")
+        if raw_limit is not None:
+            limit = max(1, min(int(raw_limit), MAX_RESULTS))
+
     if params:
         filtered = []
         p_prod = [x.lower() for x in params.get("product_id", [])]
@@ -191,6 +199,9 @@ def explain_transfer(data: dict, params: dict = None) -> str:
                    (p_store and (from_s in p_store or to_s in p_store)):
                     filtered.append(t)
             transfers = filtered
+
+    # Apply limit to result set
+    transfers = transfers[:limit]
 
     if not transfers:
         return "No transfers match the given specific product or store in this scenario."
@@ -234,6 +245,7 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
     All numeric values (quantity, cost) come directly from JSON data.
     Handles both the legacy schema (``manufacture_quantity`` / ``cost_impact``)
     and the current schema (``quantity`` / ``cost`` at record level).
+    Respects limit parameter for result count.
     """
     mfg_data = data.get("manufacturing", {})
     actions = mfg_data.get("manufacturing_actions", [])
@@ -249,6 +261,13 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
 
     scenario_label = selected_scenario or mfg_data.get("scenario") or "Unknown"
 
+    # Extract limit from params; default to MAX_RESULTS
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict):
+        raw_limit = params.get("limit")
+        if raw_limit is not None:
+            limit = max(1, min(int(raw_limit), MAX_RESULTS))
+
     if params:
         filtered = []
         p_prod = [x.lower() for x in params.get("product_id", [])]
@@ -259,6 +278,9 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
                 if product in p_prod:
                     filtered.append(m)
             actions = filtered
+
+    # Apply limit to result set
+    actions = actions[:limit]
 
     if not actions:
         return "No manufacturing actions match the given specific product in this scenario."

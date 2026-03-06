@@ -13,6 +13,10 @@ import plotly.graph_objects as go
 import tempfile
 import zipfile
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation

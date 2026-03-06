@@ -122,7 +122,9 @@ _KEYWORD_MAP = {
     ],
     "top_transfers_by_cost": [
         "top transfers by cost", "transfers by cost", "transfers ranked by cost",
-        "transfers sorted by cost", "transfer cost ranking",
+        "transfers sorted by cost", "transfer cost ranking", "transfer recommendation by cost",
+        "transfer recommendations by cost", "top transfer recommendation by cost",
+        "top transfer recommendations by cost",
     ],
     "top_transfers_by_quantity": [
         "top transfers by quantity", "transfers by quantity", "most units transferred",
@@ -141,10 +143,10 @@ _KEYWORD_MAP = {
     ],
     # ── Legacy intents ─────────────────────────────────────────────────────
     "explain_transfer": [
-        "transfer", "move inventory", "reroute", "shift stock", "send inventory",
+        "move inventory", "reroute", "shift stock", "send inventory",
         "from store", "to store", "inter-store", "why transfer", "should i transfer",
-        "transfer recommend", "allocation decision", "why move", "store to store",
-        "explain transfer",
+        "allocation decision", "why move", "store to store",
+        "explain transfer", "specific transfer", "transfer detail",
     ],
     "explain_manufacturing": [
         "manufactur", "produce", "production", "make more", "fabricat",
@@ -391,6 +393,10 @@ def extract_list_parameters(user_message: str) -> dict:
 
 
 def classify_intent(user_message: str) -> str:
+    """Classify user intent using LLM first, with keyword fallback."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     lower = user_message.strip().lower()
     if lower in _GREETING_KEYWORDS or any(lower.startswith(g) for g in _GREETING_KEYWORDS):
         return "greeting"
@@ -408,12 +414,17 @@ def classify_intent(user_message: str) -> str:
         return intent
 
     try:
+        logger.info(f"[LLM] Attempting to classify: '{user_message}'")
         raw = call_llm(messages).strip().lower()
+        logger.info(f"[LLM] Received response: '{raw}'")
         label = raw.split()[0] if raw else ""
         if label in ALLOWED_INTENTS:
+            logger.info(f"[LLM] Valid intent: {label}")
             return _fallback_with_params(label)
+        logger.warning(f"[LLM] Invalid intent '{label}', falling back to keywords")
         return _fallback_with_params(_keyword_classify(user_message))
-    except Exception:
+    except Exception as e:
+        logger.error(f"[LLM] Failed with error: {type(e).__name__}: {str(e)}")
         return _fallback_with_params(_keyword_classify(user_message))
 
 

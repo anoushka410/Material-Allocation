@@ -683,7 +683,23 @@ def load_csv(path: str) -> list[dict]:
 
 
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": """**Welcome to Supply Chain Analytics!**
+
+I'm here to help you explore your optimization data. You can ask me about:
+
+• Inventory status and gaps
+• Transfer recommendations
+• Manufacturing decisions
+• Scenario comparisons
+
+Try asking something like "Show me top transfers by cost" or "What's the inventory status for store 5?"
+
+What would you like to know?"""
+        }
+    ]
 
 if "last_intent" not in st.session_state:
     st.session_state.last_intent = None
@@ -700,7 +716,23 @@ with st.sidebar:
     col1, col2 = st.columns([3, 1])
     with col1:
         if st.button("Clear Conversation", use_container_width=True, key="clear_btn"):
-            st.session_state.messages = []
+            st.session_state.messages = [
+                {
+                    "role": "assistant",
+                    "content": """**Welcome to Supply Chain Analytics!**
+
+I'm here to help you explore your optimization data. You can ask me about:
+
+• Inventory status and gaps
+• Transfer recommendations
+• Manufacturing decisions
+• Scenario comparisons
+
+Try asking something like "Show me top transfers by cost" or "What's the inventory status for store 5?"
+
+What would you like to know?"""
+                }
+            ]
             st.session_state.last_intent = None
             st.rerun()
     with col2:
@@ -980,8 +1012,8 @@ with tab2:
         m_df = pd.DataFrame([
             {
                 "Product": m.get("product_id", ""),
-                "Manufacture Qty": m.get("manufacture_quantity", 0),
-                "Manufacturing Cost ($)": m.get("cost_impact", {}).get("manufacturing_cost", 0),
+                "Manufacture Qty": m.get("quantity", 0),
+                "Manufacturing Cost ($)": m.get("cost", 0),
                 "Reasons": ", ".join(m.get("reason_codes", [])),
             }
             for m in mfg_list

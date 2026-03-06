@@ -18,7 +18,6 @@ from nlp.intent_classifier import classify_intent, extract_parameters
 from nlp.explanation_engine import build_explanation, handle_user_query, detect_scenario
 from nlp.refiner import refine_explanation
 from nlp.llm_client import MODEL_NAME as LLM_MODEL_NAME
-from nlp.scenario_compare import ScenarioSnapshot, compare_scenarios, sensitivity_analysis_text
 from optimization.stochastic import generate_scenarios, compute_cvar
 from optimization.scenarios import ScenarioRegistry
 from monitoring.drift import ForecastDriftDetector
@@ -344,6 +343,21 @@ st.markdown(
         color: #0f172a;
     }
 
+    /* Keep control panel permanently visible and remove collapse controls */
+    section[data-testid="stSidebar"] {
+        transform: none !important;
+    }
+
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        min-width: 21rem !important;
+        max-width: 21rem !important;
+    }
+
+    button[data-testid="collapsedControl"],
+    button[data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
+
     @media (prefers-color-scheme: dark) {
         .sidebar-title {
             color: #f8fafc;
@@ -595,35 +609,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Add sidebar toggle button that's always visible
-st.markdown("""
-<style>
-.sidebar-toggle-btn {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(14, 165, 233, 0.2);
-    border: 1px solid rgba(14, 165, 233, 0.4);
-    color: #0ea5e9;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    z-index: 100;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    font-size: 0.85rem;
-}
-
-.sidebar-toggle-btn:hover {
-    background: rgba(14, 165, 233, 0.3);
-    border-color: rgba(14, 165, 233, 0.6);
-    transform: scale(1.05);
-}
-</style>
-<div class="sidebar-toggle-btn" onclick="document.querySelector('[data-testid=baseButton-secondary]')?.click()" title="Click hamburger menu (☰) to toggle sidebar">
-  ☰ Toggle Sidebar
-</div>
-""", unsafe_allow_html=True)
+# Sidebar is intentionally non-collapsible so control panel remains accessible.
 
 INTENT_LABELS = {
     # ── Required pipeline intents ──────────────────────────────────────────────
@@ -1245,14 +1231,42 @@ with tab4:
         "Explore how cost and risk metrics change when demand is uncertain. "
         "Scenarios are generated with a **log-normal** demand distribution around point forecasts."
     )
+    with st.expander("How to read this section", expanded=False):
+        st.markdown(
+            "- **Expected Cost**: average across all simulated demand outcomes.\n"
+            "- **VaR (alpha)**: cost threshold that only the worst `(1-alpha)` fraction exceed.\n"
+            "- **CVaR (alpha)**: average cost inside that worst tail, so it captures severity of bad outcomes.\n"
+            "- **Risk Premium**: `CVaR - Expected Cost`; think of this as a risk buffer over the average case."
+        )
 
     col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
     with col_cfg1:
-        n_scen = st.slider("Number of scenarios (Ω)", 10, 100, 30, step=10)
+        n_scen = st.slider(
+            "Number of scenarios (Omega)",
+            10,
+            100,
+            30,
+            step=10,
+            help="How many demand futures to simulate. More scenarios give a smoother risk estimate.",
+        )
     with col_cfg2:
-        demand_cv = st.slider("Demand CV (coefficient of variation)", 0.05, 0.60, 0.20, step=0.05)
+        demand_cv = st.slider(
+            "Demand CV (coefficient of variation)",
+            0.05,
+            0.60,
+            0.20,
+            step=0.05,
+            help="Relative demand volatility. Example: CV=0.20 means roughly 20% spread around mean demand.",
+        )
     with col_cfg3:
-        alpha_cvar = st.slider("CVaR confidence level (α)", 0.80, 0.99, 0.95, step=0.01)
+        alpha_cvar = st.slider(
+            "CVaR confidence level (alpha)",
+            0.80,
+            0.99,
+            0.95,
+            step=0.01,
+            help="Tail-risk level. Alpha=0.95 focuses on the worst 5% scenarios; alpha=0.97 focuses on worst 3%.",
+        )
 
     @st.cache_data(show_spinner=False)
     def _build_mean_demands_from_forecast(path_wide: str, max_pairs: int = 30):
@@ -1265,9 +1279,7 @@ with tab4:
         day_cols = [c for c in df.columns if c.startswith("day+")]
         if not day_cols:
             return {}
-        # mean over horizon
         df["mean_demand"] = df[day_cols].mean(axis=1)
-        # keep top pairs by demand for speed
         df = df.sort_values("mean_demand", ascending=False).head(max_pairs)
         out = {}
         for _, r in df.iterrows():
@@ -1296,7 +1308,6 @@ with tab4:
                 result[(int(parts[0]), parts[1])] = v
             except Exception:
                 continue
-        # limit size
         return dict(list(result.items())[:max_pairs])
 
     forecast_path = "demand-forecast/output/product_forecasts_wide.csv"
@@ -1331,6 +1342,10 @@ with tab4:
         sk3.metric(f"CVaR ({alpha_cvar:.0%})", f"${cvar_val:,.0f}")
         risk_premium = cvar_val - expected_cost
         sk4.metric("Risk Premium", f"${risk_premium:,.0f}", delta=f"{risk_premium/expected_cost*100:.1f}% of EV" if expected_cost else None)
+        st.caption(
+            "Interpretation: VaR is a threshold; CVaR is the average beyond that threshold. "
+            "A larger Risk Premium means heavier downside tail risk relative to the average case."
+        )
 
         st.markdown("---")
 
@@ -1344,6 +1359,7 @@ with tab4:
             fig_hist.add_vline(x=cvar_val, line_dash="dot", line_color="#7c3aed", annotation_text=f"CVaR({alpha_cvar:.0%})")
             fig_hist.update_layout(margin=dict(t=30, b=10))
             st.plotly_chart(fig_hist, use_container_width=True)
+            st.caption("Each bar shows how many scenarios land in a cost range. Wider spread means higher uncertainty.")
 
         with col_cdf:
             st.markdown("#### Empirical CDF")
@@ -1353,51 +1369,132 @@ with tab4:
             fig_cdf.add_vline(x=var_val, line_dash="dash", line_color="#dc2626", annotation_text=f"VaR({alpha_cvar:.0%})")
             fig_cdf.update_layout(margin=dict(t=30, b=10))
             st.plotly_chart(fig_cdf, use_container_width=True)
+            st.caption("At any cost value on the x-axis, the y-axis tells the fraction of scenarios at or below that cost.")
 
         st.markdown("---")
 
-        st.markdown("### Scenario Comparison (Baseline vs. Service-First)")
-        st.markdown("Simulate a *service-first* scenario with 20% more demand (proxy for prioritising service level over cost).")
+        st.markdown("### Compare Two Optimization Scenarios")
 
-        baseline_snap = ScenarioSnapshot.from_json(_scenario4) if _scenario4 else ScenarioSnapshot(
-            name="baseline", total_cost=expected_cost,
-            manufacturing_cost=expected_cost * 0.8, transfer_cost=expected_cost * 0.01,
-            holding_cost=expected_cost * 0.19, total_transfers=len(_transfers4),
-            manufacturing_units=500.0, transfer_units=50.0,
-        )
+        # Get list of available generated scenarios
+        available_scen_ids = _get_available_scenarios(SAMPLE_DATA_DIR)
+        if not available_scen_ids:
+            st.warning("No optimization scenarios available. Run 'Optimization' tab first.")
+        else:
+            col_scen1, col_scen2 = st.columns(2)
 
-        service_first_snap = ScenarioSnapshot(
-            name="service_first",
-            total_cost=baseline_snap.total_cost * 1.18,
-            manufacturing_cost=baseline_snap.manufacturing_cost * 1.22,
-            transfer_cost=baseline_snap.transfer_cost * 1.35,
-            holding_cost=baseline_snap.holding_cost * 1.05,
-            total_transfers=int(baseline_snap.total_transfers * 1.30),
-            manufacturing_units=baseline_snap.manufacturing_units * 1.22,
-            transfer_units=baseline_snap.transfer_units * 1.35,
-        )
+            with col_scen1:
+                scen1_id = st.selectbox(
+                    "Scenario 1",
+                    options=available_scen_ids,
+                    index=0,
+                    key="scen1_compare",
+                )
 
-        narrative = compare_scenarios(baseline_snap, service_first_snap)
-        st.markdown(narrative)
+            with col_scen2:
+                # Default to second scenario if available, else first
+                default_idx2 = 1 if len(available_scen_ids) > 1 else 0
+                scen2_id = st.selectbox(
+                    "Scenario 2",
+                    options=available_scen_ids,
+                    index=default_idx2,
+                    key="scen2_compare",
+                )
 
-        st.markdown("---")
+            if scen1_id != scen2_id:
+                # Load both scenario summaries from the flat JSON
+                combined_summary = _all4.get("scenario_summary_all", {})
+                summaries = combined_summary.get("summaries", [])
 
-        st.markdown("### Sensitivity: Cost vs. Demand CV")
-        cv_values = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
-        sens_costs = []
-        for cv_val in cv_values:
-            scen_cv, probs_cv = generate_scenarios(mean_demands, n_scenarios=30, cv=cv_val, random_state=42)
-            cost_cv = sum(c * p for c, p in zip([sum(v * unit_cost for v in s.values()) for s in scen_cv], probs_cv))
-            sens_costs.append(cost_cv)
+                scen1_data = next((s for s in summaries if s.get("scenario") == scen1_id), None)
+                scen2_data = next((s for s in summaries if s.get("scenario") == scen2_id), None)
 
-        sens_text = sensitivity_analysis_text(baseline_snap, "demand_cv", cv_values, sens_costs)
-        with st.expander("📄 Sensitivity Analysis Narrative"):
-            st.markdown(sens_text)
+                if scen1_data and scen2_data:
+                    # Extract cost and volume metrics
+                    scen1_opt = scen1_data.get("optimized", {})
+                    scen2_opt = scen2_data.get("optimized", {})
+                    scen1_cost = scen1_data.get("cost_breakdown", {})
+                    scen2_cost = scen2_data.get("cost_breakdown", {})
 
-        sens_df = pd.DataFrame({"Demand CV": cv_values, "Expected Cost ($)": sens_costs})
-        fig_sens = px.line(sens_df, x="Demand CV", y="Expected Cost ($)", markers=True, color_discrete_sequence=["#0ea5e9"])
-        fig_sens.update_layout(margin=dict(t=10, b=10))
-        st.plotly_chart(fig_sens, use_container_width=True)
+                    # Cost Summary Table
+                    st.markdown("#### Cost Summary")
+                    cost_comparison = pd.DataFrame({
+                        "Metric": ["Total Cost", "Manufacturing", "Transfer/Logistics", "Holding/Inventory"],
+                        scen1_id: [
+                            scen1_opt.get("total_cost", 0),
+                            scen1_cost.get("manufacturing_cost", 0),
+                            scen1_cost.get("transfer_cost", 0),
+                            scen1_cost.get("holding_cost", 0),
+                        ],
+                        scen2_id: [
+                            scen2_opt.get("total_cost", 0),
+                            scen2_cost.get("manufacturing_cost", 0),
+                            scen2_cost.get("transfer_cost", 0),
+                            scen2_cost.get("holding_cost", 0),
+                        ],
+                    })
+
+                    # Calculate change
+                    cost_comparison["Change ($)"] = cost_comparison[scen2_id] - cost_comparison[scen1_id]
+                    cost_comparison["Change (%)"] = (cost_comparison["Change ($)"] / cost_comparison[scen1_id] * 100).round(1)
+                    st.dataframe(cost_comparison, use_container_width=True, hide_index=True)
+
+                    # Volume Summary Table
+                    st.markdown("#### Volume Summary")
+                    vol_comparison = pd.DataFrame({
+                        "Metric": ["Total Transfers", "Manufacturing Units", "Transfer Units"],
+                        scen1_id: [
+                            scen1_opt.get("total_transfers", 0),
+                            scen1_opt.get("manufacturing_units", 0),
+                            scen1_opt.get("transfer_units", 0),
+                        ],
+                        scen2_id: [
+                            scen2_opt.get("total_transfers", 0),
+                            scen2_opt.get("manufacturing_units", 0),
+                            scen2_opt.get("transfer_units", 0),
+                        ],
+                    })
+
+                    vol_comparison["Change"] = vol_comparison[scen2_id] - vol_comparison[scen1_id]
+                    vol_comparison["Change (%)"] = (vol_comparison["Change"] / vol_comparison[scen1_id] * 100).round(1)
+                    st.dataframe(vol_comparison, use_container_width=True, hide_index=True)
+
+                    # Key Insights
+                    st.markdown("#### Key Insights")
+                    total_cost_diff = scen2_opt.get("total_cost", 0) - scen1_opt.get("total_cost", 0)
+                    total_cost_pct = (total_cost_diff / scen1_opt.get("total_cost", 1)) * 100
+
+                    insights = []
+                    if total_cost_diff > 0:
+                        insights.append(f"**{scen2_id}** costs **${abs(total_cost_diff):,.0f}** ({total_cost_pct:.1f}%) **more** than {scen1_id}.")
+                    elif total_cost_diff < 0:
+                        insights.append(f"**{scen2_id}** costs **${abs(total_cost_diff):,.0f}** ({abs(total_cost_pct):.1f}%) **less** than {scen1_id}.")
+                    else:
+                        insights.append(f"Both scenarios have equal total cost.")
+
+                    mfg_diff = scen2_cost.get("manufacturing_cost", 0) - scen1_cost.get("manufacturing_cost", 0)
+                    if mfg_diff != 0:
+                        mfg_pct = (mfg_diff / max(scen1_cost.get("manufacturing_cost", 1), 1)) * 100
+                        direction = "increases" if mfg_diff > 0 else "decreases"
+                        insights.append(f"Manufacturing cost {direction} by **${abs(mfg_diff):,.0f}** ({abs(mfg_pct):.1f}%).")
+
+                    transfer_diff = scen2_cost.get("transfer_cost", 0) - scen1_cost.get("transfer_cost", 0)
+                    if transfer_diff != 0:
+                        transfer_pct = (transfer_diff / max(scen1_cost.get("transfer_cost", 1), 1)) * 100
+                        direction = "increases" if transfer_diff > 0 else "decreases"
+                        insights.append(f"Transfer/Logistics cost {direction} by **${abs(transfer_diff):,.0f}** ({abs(transfer_pct):.1f}%).")
+
+                    transfer_units_diff = scen2_opt.get("transfer_units", 0) - scen1_opt.get("transfer_units", 0)
+                    if transfer_units_diff != 0:
+                        units_pct = (transfer_units_diff / max(scen1_opt.get("transfer_units", 1), 1)) * 100
+                        direction = "increases" if transfer_units_diff > 0 else "decreases"
+                        insights.append(f"Transfer units {direction} by **{abs(transfer_units_diff):,.1f}** ({abs(units_pct):.1f}%).")
+
+                    for insight in insights:
+                        st.markdown(f"• {insight}")
+                else:
+                    st.warning("Could not load one or both scenario data. Ensure both scenarios have been optimized.")
+            else:
+                st.info("Please select two different scenarios to compare.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

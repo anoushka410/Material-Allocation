@@ -295,25 +295,36 @@ Open your browser and go to: **http://localhost:8501**
 - Store activity network visualization
 - KPI metrics and comparisons
 
-### 3. **Data Processing Tab**
-- Demand forecasting with trend analysis
-- Data preprocessing and EDA
-- Export capabilities (CSV/JSON)
+### 3. **Forecasting Tab**
+- Demand forecasting performance metrics
+- Model accuracy analysis (MAE/RMSE)
+- Store-level forecast performance
+- Data preprocessing and EDA outputs
 
-### 4. **Multi-Scenario Analysis**
-- Compare different supply chain strategies:
-  - Base case (standard conditions)
-  - High disruption (risk-aware)
-  - Demand spike (peak scenarios)
-  - Transport cost increase (fuel shock)
-  - Extended lead times (supplier delays)
-  - Cost-only optimization
+### 4. **Stochastic Scenarios Tab**
+- **Demand Uncertainty Analysis**: Simulate multiple demand scenarios using log-normal distribution
+- **Risk Metrics**: Expected Cost, VaR (Value at Risk), CVaR (Conditional Value at Risk)
+- **Risk Premium Calculation**: Buffer needed for tail-risk management
+- **Cost Distribution Analysis**: Histogram and empirical CDF of scenario outcomes
+- **Real Scenario Comparison**: Compare any 2 of your 6 pre-defined optimization scenarios
+  - Cost summary (total, manufacturing, transfer, holding)
+  - Volume summary (transfers, manufacturing units, transfer units)
+  - Auto-generated key insights and percent changes
 
-### 5. **LLM-Powered Responses**
-- Intent classification (what is the user asking?)
-- Explanation generation (deterministic markdown)
-- LLM refinement (natural language polish)
-- Markdown-to-HTML conversion (proper rendering)
+### 5. **Monitoring Tab**
+- Data drift detection for forecast models
+- Sliding-window and CUSUM detection methods
+- Store and product-level drift visualization
+- KPI export to CSV for BI dashboards
+
+### 6. **Multi-Scenario Optimization**
+- Base case (standard conditions)
+- High disruption (risk-aware)
+- Demand spike (peak scenarios)
+- Transport cost increase (fuel shock)
+- Extended lead times (supplier delays)
+- Cost-only optimization
+
 
 ---
 
@@ -335,7 +346,7 @@ v7/
 │   ├── explanation_engine.py                   # Generate responses
 │   ├── llm_client.py                           # Ollama API client
 │   ├── refiner.py                              # LLM response refinement
-│   ├── scenario_compare.py                     # Multi-scenario analysis
+│   ├── scenario_compare.py                     # Scenario data models (ScenarioSnapshot)
 │   ├── schemas.py                              # Data models
 │   └── README.md                               # NLP documentation
 │

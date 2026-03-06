@@ -2,9 +2,18 @@ import re
 from nlp.llm_client import call_llm
 
 ALLOWED_INTENTS = {
+    # ── New pipeline intents ───────────────────────────────────────────────
+    "inventory_status",           # Show current vs target inventory levels
+    "manufacturing_plan",         # Manufacturing decisions and production actions
+    "transfer_recommendations",   # Transfer recommendations and routing
+    "scenario_summary",           # High-level scenario metrics
+    "top_transfers_by_cost",      # Transfers ranked by transport cost (descending)
+    "top_transfers_by_quantity",  # Transfers ranked by quantity (descending)
+    "top_manufacturing_items",    # Manufacturing actions ranked by cost or quantity
+    "scenario_comparison",        # Compare two scenarios side-by-side
+    # ── Legacy intents kept for backward compatibility ─────────────────────
     "explain_transfer",
     "explain_manufacturing",
-    "scenario_summary",
     "impact_analysis",
     "total_counts",
     "top_transfers",
@@ -15,6 +24,7 @@ ALLOWED_INTENTS = {
     "store_activity",
     "product_recommendations",
     "cost_breakdown",
+    # ── Always present ─────────────────────────────────────────────────────
     "out_of_scope",
     "greeting",
 }
@@ -25,11 +35,18 @@ _GREETING_KEYWORDS = {
 }
 
 SYSTEM_PROMPT = (
-    "You are an intent classifier for a supply chain NLP assistant. "
+    "You are an intent classifier for a supply chain optimization NLP assistant. "
     "Given a user message, return exactly one label from this list:\n"
+    "  inventory_status\n"
+    "  manufacturing_plan\n"
+    "  transfer_recommendations\n"
+    "  scenario_summary\n"
+    "  top_transfers_by_cost\n"
+    "  top_transfers_by_quantity\n"
+    "  top_manufacturing_items\n"
+    "  scenario_comparison\n"
     "  explain_transfer\n"
     "  explain_manufacturing\n"
-    "  scenario_summary\n"
     "  impact_analysis\n"
     "  total_counts\n"
     "  top_transfers\n"
@@ -42,21 +59,35 @@ SYSTEM_PROMPT = (
     "  cost_breakdown\n"
     "  out_of_scope\n\n"
     "Label definitions:\n"
-    "  explain_transfer           → detailed transfer recommendations and routing\n"
-    "  explain_manufacturing      → manufacturing decisions and production actions\n"
-    "  scenario_summary           → high-level scenario overview\n"
-    "  impact_analysis            → cost impact, financial metrics\n"
+    "  inventory_status           → current vs target inventory levels for stores or products\n"
+    "  manufacturing_plan         → manufacturing decisions and production actions\n"
+    "  transfer_recommendations   → transfer recommendations and inter-store routing\n"
+    "  scenario_summary           → high-level scenario metrics and overview\n"
+    "  top_transfers_by_cost      → transfers ranked by transport cost (highest first)\n"
+    "  top_transfers_by_quantity  → transfers ranked by quantity (highest first)\n"
+    "  top_manufacturing_items    → manufacturing actions ranked by cost or quantity\n"
+    "  scenario_comparison        → comparing two scenarios side-by-side\n"
+    "  explain_transfer           → detailed narrative for a specific transfer\n"
+    "  explain_manufacturing      → detailed narrative for a specific manufacturing decision\n"
+    "  impact_analysis            → cost impact, financial metrics, savings\n"
     "  total_counts               → summary counts and statistics\n"
-    "  top_transfers              → prioritized transfers by quantity or cost\n"
-    "  top_manufacturing          → prioritized manufacturing actions by cost or quantity\n"
-    "  urgent_transfers           → transfers marked with high urgency/priority (stockout prevention)\n"
-    "  high_cost_actions          → expensive transfers or manufacturing decisions\n"
-    "  reason_analysis            → analysis of why decisions were made (reason codes)\n"
+    "  top_transfers              → prioritized transfers (generic)\n"
+    "  top_manufacturing          → prioritized manufacturing actions (generic)\n"
+    "  urgent_transfers           → stockout-prevention transfers\n"
+    "  high_cost_actions          → most expensive transfers or manufacturing decisions\n"
+    "  reason_analysis            → analysis of decision reason codes\n"
     "  store_activity             → store-specific involvement in transfers\n"
-    "  product_recommendations    → product-specific decisions and impact\n"
+    "  product_recommendations    → product-specific actions and impact\n"
     "  cost_breakdown             → detailed cost composition analysis\n"
-    "  out_of_scope               → unrelated to supply chain\n\n"
+    "  out_of_scope               → unrelated to supply chain optimization\n\n"
     "Examples:\n"
+    "  'show inventory status' → inventory_status\n"
+    "  'what is the manufacturing plan' → manufacturing_plan\n"
+    "  'show transfer recommendations' → transfer_recommendations\n"
+    "  'top 5 transfers by cost' → top_transfers_by_cost\n"
+    "  'top transfers by quantity' → top_transfers_by_quantity\n"
+    "  'top manufacturing items' → top_manufacturing_items\n"
+    "  'compare base case vs high disruption' → scenario_comparison\n"
     "  'what are the top transfers' → top_transfers\n"
     "  'most expensive manufacturing' → high_cost_actions\n"
     "  'why are these transfers needed' → reason_analysis\n"
@@ -67,15 +98,55 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Return ONLY the label. No punctuation, no explanation.\n"
     "- If ambiguous between two intents, prefer the more specific one.\n"
+    "- If the query mentions inventory levels, current stock, or final stock → inventory_status.\n"
+    "- If the query asks to rank/sort transfers by cost → top_transfers_by_cost.\n"
+    "- If the query asks to rank/sort transfers by quantity → top_transfers_by_quantity.\n"
+    "- If the query compares two scenarios → scenario_comparison.\n"
     "- If about costs/expenses, default to high_cost_actions or cost_breakdown."
 )
 
 _KEYWORD_MAP = {
+    # ── New pipeline intents ───────────────────────────────────────────────
+    "inventory_status": [
+        "inventory", "stock level", "current stock", "inventory level",
+        "inventory status", "stock status", "on hand", "final stock",
+        "target stock", "current inventory", "inventory position",
+    ],
+    "manufacturing_plan": [
+        "manufacturing plan", "production plan", "manufacture plan",
+        "what should be manufactured", "planned manufacturing",
+        "production schedule", "manufacturing schedule",
+    ],
+    "transfer_recommendations": [
+        "show transfer recommendations", "list transfer recommendations",
+        "show all transfers", "list all transfers", "transfer overview",
+        "all transfer recommendations",
+    ],
+    "top_transfers_by_cost": [
+        "top transfers by cost", "transfers by cost", "transfers ranked by cost",
+        "transfers sorted by cost", "transfer cost ranking",
+    ],
+    "top_transfers_by_quantity": [
+        "top transfers by quantity", "transfers by quantity", "most units transferred",
+        "highest quantity transfers", "transfers sorted by quantity", "transfer by volume",
+    ],
+    "top_manufacturing_items": [
+        "top manufacturing items", "manufacturing items by cost",
+        "manufacturing ranked by cost", "manufacturing sorted by cost",
+        "ranked manufacturing items",
+    ],
+    "scenario_comparison": [
+        "compare scenario", "scenario vs", "vs scenario", "scenario comparison",
+        "compare base", "compare high disruption", "compare fuel shock",
+        "compare demand spike", "compare lead time", "scenario difference",
+        "which scenario", "compare two scenario",
+    ],
+    # ── Legacy intents ─────────────────────────────────────────────────────
     "explain_transfer": [
         "transfer", "move inventory", "reroute", "shift stock", "send inventory",
         "from store", "to store", "inter-store", "why transfer", "should i transfer",
-        "transfer recommend", "transfer recommendation", "what should",
-        "allocation decision", "why move", "store to store", "explain transfer",
+        "transfer recommend", "allocation decision", "why move", "store to store",
+        "explain transfer",
     ],
     "explain_manufacturing": [
         "manufactur", "produce", "production", "make more", "fabricat",
@@ -84,7 +155,7 @@ _KEYWORD_MAP = {
     ],
     "scenario_summary": [
         "scenario", "summary", "overview", "high risk", "low risk",
-        "optimized", "baseline", "what happened", "performance", "compare",
+        "optimized", "baseline", "what happened", "performance",
         "how did", "results", "scenario summary",
     ],
     "impact_analysis": [
@@ -98,21 +169,20 @@ _KEYWORD_MAP = {
     ],
     "top_transfers": [
         "top transfer", "highest transfer", "largest transfer", "biggest transfer",
-        "priority transfer", "most expensive transfer", "most costly transfer",
+        "priority transfer", "most costly transfer",
         "ranking transfer", "top routes", "transfer priority",
     ],
     "top_manufacturing": [
         "top manufactur", "highest manufactur", "largest manufactur", "biggest manufactur",
         "most expensive manufactur", "most costly manufactur", "priority manufactur",
-        "ranking manufactur", "highest cost manufactur", "manufacturing recommendation",
-        "manufactur recommend",
+        "ranking manufactur", "highest cost manufactur", "manufactur recommend",
     ],
     "urgent_transfers": [
         "urgent", "priority", "critical", "emergency", "rush", "asap", "immediate",
         "high priority transfer", "urgent transfer", "critical transfer", "stockout prevention",
     ],
     "high_cost_actions": [
-        "expensive", "costly", "high cost", "most expensive", "highest cost",
+        "expensive", "costly", "high cost", "highest cost",
         "expensive transfer", "expensive manufactur", "cost intensive",
         "budget impact", "expensive action",
     ],
@@ -137,10 +207,16 @@ _KEYWORD_MAP = {
 
 def _keyword_classify(text: str) -> str:
     lower = text.lower()
-    
+
     # Check specific/table intents FIRST (they are more specific and should take precedence)
-    # This ensures "top manufacturing" matches top_manufacturing, not explain_manufacturing
     priority_intents = [
+        "inventory_status",
+        "top_transfers_by_cost",
+        "top_transfers_by_quantity",
+        "top_manufacturing_items",
+        "scenario_comparison",
+        "manufacturing_plan",
+        "transfer_recommendations",
         "total_counts",
         "top_transfers",
         "top_manufacturing",
@@ -163,12 +239,8 @@ def _keyword_classify(text: str) -> str:
             continue  # already checked
         if any(kw in lower for kw in keywords):
             return intent
-            
+
     return "out_of_scope"
-
-
-import re
-from nlp.llm_client import call_llm
 
 
 class StructuredParameterExtractor:
@@ -345,3 +417,31 @@ def classify_intent(user_message: str) -> str:
         return _fallback_with_params(_keyword_classify(user_message))
     except Exception:
         return _fallback_with_params(_keyword_classify(user_message))
+
+
+def parse_result_limit(user_message: str, default: int = 10, max_limit: int = 10) -> int:
+    """Parse the requested result limit from a user message.
+
+    Rules enforced by the pipeline:
+    - Default limit is 10 when not specified.
+    - Maximum limit is 10 (capped even if the user requests more).
+
+    Parameters
+    ----------
+    user_message:
+        Raw user query string.
+    default:
+        Limit to use when no number is found in the query.
+    max_limit:
+        Hard upper bound; returned value will never exceed this.
+
+    Returns
+    -------
+    int
+        Effective limit, clamped to [1, max_limit].
+    """
+    extracted = StructuredParameterExtractor._extract_limit(user_message.lower())
+    if extracted is None:
+        return default
+    # Enforce maximum — never return more than max_limit results
+    return max(1, min(extracted, max_limit))

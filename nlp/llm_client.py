@@ -6,7 +6,7 @@ OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
 # ── Model selection ───────────────────────────────────────────────────────────
 # Switch between local models by changing MODEL_NAME below.
 # Supported options: "tinyllama", "mistral"
-MODEL_NAME = "tinyllama"
+MODEL_NAME = "mistral"
 
 TIMEOUT = 30
 

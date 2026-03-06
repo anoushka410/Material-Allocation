@@ -56,7 +56,7 @@ class ScenarioConfig:
         "transport_cost_increase_fuel_shock": {
             "description": "Increased shipping costs to simulate fuel price or logistics inflation.",
             "demand_multiplier": 1.0,
-            "transport_cost_multiplier": 1.5,
+            "transport_cost_multiplier": 1.3,
             "lead_time_multiplier": 1.0,
             "safety_stock_multiplier": 1.0,
             "delay_probability_multiplier": 1.0,

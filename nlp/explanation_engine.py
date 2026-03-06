@@ -207,9 +207,17 @@ def explain_transfer(data: dict, params: dict = None) -> str:
     if not transfers:
         return "No transfers match the given specific product or store in this scenario."
 
+    # Apply limit if specified (default to MAX_RESULTS)
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict) and params.get("limit"):
+        limit = params.get("limit")
+
+    total_transfers = len(transfers)
+    transfers = transfers[:limit]
+
     lines = [
         f"**Scenario:** {scenario_label}  ",
-        f"**Transfer Recommendations:** {len(transfers)}",
+        f"**Transfer Recommendations:** Showing {len(transfers)} of {total_transfers}",
         "",
     ]
 
@@ -279,9 +287,17 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
     if not actions:
         return "No manufacturing actions match the given specific product in this scenario."
 
+    # Apply limit if specified (default to MAX_RESULTS)
+    limit = MAX_RESULTS
+    if params and isinstance(params, dict) and params.get("limit"):
+        limit = params.get("limit")
+
+    total_actions = len(actions)
+    actions = actions[:limit]
+
     lines = [
         f"**Scenario:** {scenario_label}  ",
-        f"**Manufacturing Decisions:** {len(actions)}",
+        f"**Manufacturing Decisions:** Showing {len(actions)} of {total_actions}",
         "",
     ]
 

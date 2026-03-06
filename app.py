@@ -1729,6 +1729,107 @@ with tab1:
         border: 1px solid rgba(148, 163, 184, 0.25);
     }
     
+    /* Markdown content styling inside assistant messages */
+    .msg-assistant table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.75rem 0;
+        font-size: 0.9rem;
+        background: rgba(15, 23, 42, 0.6);
+    }
+    
+    .msg-assistant th {
+        background: rgba(14, 165, 233, 0.2);
+        color: #0ea5e9;
+        padding: 0.5rem;
+        text-align: left;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        font-weight: 600;
+    }
+    
+    .msg-assistant td {
+        padding: 0.5rem;
+        border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    
+    .msg-assistant tr:hover {
+        background: rgba(14, 165, 233, 0.05);
+    }
+    
+    .msg-assistant strong {
+        color: #38bdf8;
+        font-weight: 600;
+    }
+    
+    .msg-assistant code {
+        background: rgba(15, 23, 42, 0.8);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: #7dd3fc;
+    }
+    
+    .msg-assistant pre {
+        background: rgba(15, 23, 42, 0.8);
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    
+    .msg-assistant pre code {
+        background: none;
+        padding: 0;
+    }
+    
+    /* Badge styling */
+    .intent-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(56, 189, 248, 0.2));
+        color: #38bdf8;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid rgba(14, 165, 233, 0.4);
+        margin-right: 0.5rem;
+    }
+    
+    .filter-badge {
+        display: inline-block;
+        background: rgba(148, 163, 184, 0.15);
+        color: #94a3b8;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        margin-right: 0.5rem;
+    }
+    
+    .msg-assistant h1,
+    .msg-assistant h2,
+    .msg-assistant h3,
+    .msg-assistant h4 {
+        color: #0ea5e9;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .msg-assistant ul,
+    .msg-assistant ol {
+        padding-left: 1.5rem;
+        margin: 0.5rem 0;
+    }
+    
+    .msg-assistant li {
+        margin: 0.25rem 0;
+    }
+    
+    .msg-assistant p {
+        margin: 0.5rem 0;
+    }
+    
     /* Empty state */
     .empty-state {
         display: flex;
@@ -1793,24 +1894,113 @@ with tab1:
 
     # Chat container starts
     import html
+    import re
+
+    def simple_markdown_to_html(text):
+        """Convert basic markdown to HTML without external dependencies."""
+        # Preserve HTML tags (like badges) by temporarily replacing them
+        html_tags = []
+        def save_html(match):
+            html_tags.append(match.group(0))
+            # Use a unique placeholder that won't be affected by markdown processing
+            # Format: ≪HTMLTAG·0≫ (using special unicode characters)
+            return f"≪HTMLTAG·{len(html_tags)-1}≫"
+
+        # Save HTML tags
+        text = re.sub(r'<[^>]+>', save_html, text)
+
+        # Convert markdown tables to HTML
+        lines = text.split('\n')
+        result = []
+        in_table = False
+
+        for i, line in enumerate(lines):
+            # Detect table rows
+            if '|' in line and line.strip().startswith('|'):
+                cells = [cell.strip() for cell in line.strip().split('|')[1:-1]]
+
+                # Check if this is a separator line (|------|)
+                if all(re.match(r'^-+$', cell) for cell in cells if cell):
+                    # Skip separator line, table header was previous line
+                    continue
+
+                # Check if next line is separator (this is a header)
+                is_header = False
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    if '|' in next_line and all(re.match(r'^-+$', cell.strip()) for cell in next_line.split('|')[1:-1] if cell.strip()):
+                        is_header = True
+                        if not in_table:
+                            result.append('<table>')
+                            in_table = True
+                        result.append('<thead><tr>')
+                        for cell in cells:
+                            result.append(f'<th>{cell}</th>')
+                        result.append('</tr></thead><tbody>')
+                        continue
+
+                # Regular table row
+                if not in_table:
+                    result.append('<table><tbody>')
+                    in_table = True
+
+                result.append('<tr>')
+                for cell in cells:
+                    result.append(f'<td>{cell}</td>')
+                result.append('</tr>')
+            else:
+                # Close table if we were in one
+                if in_table:
+                    result.append('</tbody></table>')
+                    in_table = False
+
+                # Skip markdown conversion for lines with placeholders
+                has_placeholder = '≪HTMLTAG·' in line
+
+                if not has_placeholder:
+                    # Convert markdown bold (**text** - avoid converting __text__ to prevent placeholder corruption)
+                    line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+
+                    # Convert markdown italic (*text* - avoid _text_ to prevent placeholder corruption)
+                    line = re.sub(r'\*([^*]+?)\*', r'<em>\1</em>', line)
+
+                # Add line breaks for non-empty lines
+                if line.strip():
+                    result.append(line + '<br>')
+                else:
+                    result.append('<br>')
+
+        # Close table if still open
+        if in_table:
+            result.append('</tbody></table>')
+
+        html_output = '\n'.join(result)
+
+        # Restore HTML tags
+        for idx, tag in enumerate(html_tags):
+            html_output = html_output.replace(f'≪HTMLTAG·{idx}≫', tag)
+
+        return html_output
 
     messages_html = '<div class="chat-container"><div class="messages-area" id="messagesArea">'
 
     # Build all messages as HTML string with proper escaping
     if st.session_state.messages:
         for msg in st.session_state.messages:
-            # Escape content to prevent HTML injection and display issues
-            content = html.escape(msg["content"])
-            # But preserve newlines and basic formatting
-            content = content.replace('\n', '<br>')
-
             if msg["role"] == "user":
+                # Escape user input to prevent HTML injection
+                content = html.escape(msg["content"])
+                content = content.replace('\n', '<br>')
                 messages_html += f'''<div class="message-bubble user-msg">
                     <div class="msg-content msg-user">{content}</div>
                 </div>'''
             else:
+                # For assistant messages, convert markdown to HTML
+                content = msg["content"]
+                content_html = simple_markdown_to_html(content)
+
                 messages_html += f'''<div class="message-bubble">
-                    <div class="msg-content msg-assistant">{content}</div>
+                    <div class="msg-content msg-assistant">{content_html}</div>
                 </div>'''
     else:
         messages_html += '<div class="empty-state">Start a conversation by typing your question below...</div>'

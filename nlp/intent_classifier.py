@@ -121,7 +121,8 @@ _KEYWORD_MAP = {
         "top transfer", "top transfers", "highest transfer", "most expensive transfer",
         "most costly transfer", "transfer by cost", "transfers by cost", "transfers ranked by cost",
         "top cost transfer", "largest cost transfer", "priority transfer by cost",
-        "transfer ranked", "transfer sorted by cost",
+        "transfer ranked", "transfer sorted by cost", "transfer recommendation by cost",
+        "transfer recommendations by cost", "top transfer recommendation",
     ],
     "top_transfers_by_quantity": [
         "top transfer by quantity", "top transfers by quantity", "transfer by quantity",

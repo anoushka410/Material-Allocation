@@ -1382,29 +1382,6 @@ with tab4:
 
         st.markdown("---")
 
-        col_dist, col_cdf = st.columns(2)
-        with col_dist:
-            st.markdown("#### Scenario Cost Distribution")
-            scen_df = pd.DataFrame({"scenario": range(1, n_scen + 1), "cost": scenario_costs})
-            fig_hist = px.histogram(scen_df, x="cost", nbins=20, color_discrete_sequence=["#0ea5e9"])
-            fig_hist.add_vline(x=expected_cost, line_dash="solid", line_color="#f97316", annotation_text="E[cost]")
-            fig_hist.add_vline(x=var_val, line_dash="dash", line_color="#dc2626", annotation_text=f"VaR({alpha_cvar:.0%})")
-            fig_hist.add_vline(x=cvar_val, line_dash="dot", line_color="#7c3aed", annotation_text=f"CVaR({alpha_cvar:.0%})")
-            fig_hist.update_layout(margin=dict(t=30, b=10))
-            st.plotly_chart(fig_hist, use_container_width=True)
-            st.caption("Each bar shows how many scenarios land in a cost range. Wider spread means higher uncertainty.")
-
-        with col_cdf:
-            st.markdown("#### Empirical CDF")
-            sorted_costs = sorted(scenario_costs)
-            cdf_y = [(i + 1) / n_scen for i in range(n_scen)]
-            fig_cdf = px.line(x=sorted_costs, y=cdf_y, labels={"x": "Cost ($)", "y": "Cumulative Probability"})
-            fig_cdf.add_vline(x=var_val, line_dash="dash", line_color="#dc2626", annotation_text=f"VaR({alpha_cvar:.0%})")
-            fig_cdf.update_layout(margin=dict(t=30, b=10))
-            st.plotly_chart(fig_cdf, use_container_width=True)
-            st.caption("At any cost value on the x-axis, the y-axis tells the fraction of scenarios at or below that cost.")
-
-        st.markdown("---")
 
         st.markdown("### Compare Two Optimization Scenarios")
 

@@ -369,13 +369,14 @@ def explain_manufacturing(data: dict, params: dict = None) -> str:
     ]
 
     for idx, m in enumerate(actions, 1):
+        store = m.get("store_id", "N/A")
         product = m.get("product_id", "N/A")
         qty = _mfg_qty(m)
         cost = _mfg_cost(m)
         reasons = m.get("reason_codes", [])
         m_scen = m.get("scenario")
 
-        title = f"**Decision {idx}: Product {product}**"
+        title = f"**Decision {idx}: Store {store} → Product {product}**"
         if m_scen and scenario_label in ("all", "Unknown", "unknown"):
             title += f" *(Scenario: {m_scen})*"
         lines.append(title + "  ")
@@ -583,15 +584,16 @@ def explain_top_manufacturing(data: dict, limit: int = 10) -> str:
         f"**Top {limit} Manufacturing Actions by Cost**",
         f"**Scenario:** {scenario}",
         "",
-        "| Rank | Product | Quantity | Cost |",
-        "|------|---------|----------|------|",
+        "| Rank | Store | Product | Quantity | Cost |",
+        "|------|-------|---------|----------|------|",
     ]
 
     for idx, m in enumerate(sorted_mfg, 1):
+        store = m.get("store_id", "N/A")
         product = m.get("product_id", "N/A")
         qty = _mfg_qty(m)
         cost = _mfg_cost(m)
-        lines.append(f"| {idx} | {product} | {qty:.2f} units | ${cost:,.2f} |")
+        lines.append(f"| {idx} | {store} | {product} | {qty:.2f} units | ${cost:,.2f} |")
 
     return "\n".join(lines)
 
@@ -663,15 +665,16 @@ def explain_high_cost_actions(data: dict, limit: int = 15) -> str:
     lines.extend([
         "",
         "**Top 10 Most Expensive Manufacturing:**",
-        "| Product | Quantity | Cost |",
-        "|---------|----------|------|",
+        "| Store | Product | Quantity | Cost |",
+        "|-------|---------|----------|------|",
     ])
 
     for m in top_mfg:
+        store = m.get("store_id", "N/A")
         product = m.get("product_id")
         qty = _mfg_qty(m)
         cost = _mfg_cost(m)
-        lines.append(f"| {product} | {qty:.2f} units | ${cost:,.2f} |")
+        lines.append(f"| {store} | {product} | {qty:.2f} units | ${cost:,.2f} |")
 
     return "\n".join(lines)
 
